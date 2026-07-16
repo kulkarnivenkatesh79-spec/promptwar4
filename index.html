@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="FIFA World Cup 2026 Smart Stadium GenAI Command & Fan Portal — real-time crowd intelligence, multilingual AI assistant, smart navigation, and sustainability tracking." />
+  <meta name="theme-color" content="#0a0e27" />
+  <meta name="color-scheme" content="dark" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="FIFA 2026 Smart Stadium Portal" />
+  <meta property="og:description" content="GenAI-powered fan experience and operational intelligence for the FIFA World Cup 2026." />
+  <meta property="og:type" content="website" />
+
+  <!-- Security -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="X-Frame-Options" content="DENY" />
+
+  <title>FIFA 2026 — Smart Stadium Command & Fan Portal</title>
+
+  <!-- Google Fonts: Preconnect + Load -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="/src/index.css" />
+</head>
+<body>
+  <!-- Skip Navigation Link -->
+  <a href="#main-content" class="skip-link" id="skip-nav">
+    Skip to main content
+  </a>
+
+  <!-- App Mount Point -->
+  <div id="app" role="application" aria-label="FIFA 2026 Smart Stadium Portal"></div>
+
+  <!-- Screen Reader Live Regions -->
+  <div
+    id="sr-announcer-polite"
+    class="sr-only"
+    aria-live="polite"
+    aria-atomic="true"
+    role="status"
+  ></div>
+  <div
+    id="sr-announcer-assertive"
+    class="sr-only"
+    aria-live="assertive"
+    aria-atomic="true"
+    role="alert"
+  ></div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" role="region" aria-label="Notifications"></div>
+
+  <!-- Modal Portal -->
+  <div id="modal-portal"></div>
+
+  <!-- No JavaScript Fallback -->
+  <noscript>
+    <div style="padding: 2rem; text-align: center; font-family: Inter, sans-serif; color: #fff; background: #0a0e27;">
+      <h1>JavaScript Required</h1>
+      <p>This application requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+    </div>
+  </noscript>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
