@@ -16,14 +16,16 @@ const knowledgeBase = {
   en: {
     schedule: "The FIFA World Cup 2026 runs from June 11 to July 19, 2026. The tournament features 48 teams across 16 venues in the US, Mexico, and Canada. Group stage matches run through June 28, with knockout rounds beginning June 29. The Final will be held at MetLife Stadium in New Jersey on July 19.",
     venues: "The 2026 World Cup features 16 stadiums: 11 in the US (MetLife Stadium, SoFi Stadium, AT&T Stadium, Hard Rock Stadium, NRG Stadium, Mercedes-Benz Stadium, Gillette Stadium, Lincoln Financial Field, Arrowhead Stadium, Levi's Stadium, Lumen Field), 3 in Mexico (Estadio Azteca, Estadio Akron, Estadio BBVA), and 2 in Canada (BMO Field, BC Place).",
-    transit: "Shuttle buses run every 10–15 minutes from designated transit hubs to each venue. Metro/subway connections are available at most US venues. Rideshare drop-off zones are located at Parking Lots A and C. For real-time transit updates, check the Smart Navigation tab.",
+    transit: "For dynamic route optimization, our Smart Transit system recommends using the official FIFA shuttle buses, which run every 10–15 minutes from designated transit hubs. We also provide accessible pathways, live train/subway intervals, and real-time rideshare drop-off mapping via the Navigation portal.",
     accessibility: "All venues offer wheelchair-accessible seating, ramps, elevators, and accessible restrooms. Hearing loops are available at most US and Canadian venues. Service animals are welcome. For accessible pathways, use our Smart Navigation feature which highlights ramps, elevators, and accessible routes.",
     tickets: "All tickets are digital-only for FIFA 2026 — no paper tickets are issued. Tickets are linked to your FIFA account and can be accessed via the FIFA app or email confirmation. Transfer and resale are managed through the official FIFA Ticket Portal.",
     prohibited: "Prohibited items include: outside food/beverages (water bottles under 500ml allowed), weapons, fireworks, drones, professional cameras (lens > 200mm), flags on poles, laser pointers, large bags (>35cm x 25cm), and any discriminatory materials.",
     weather: "Weather varies significantly across venues. Southern US venues (Miami, Houston, Dallas) can reach 35°C+ in summer. Northern venues (Seattle, Boston) are typically 20–28°C. Mexican venues vary by altitude. Always check the weather widget on your match day page. Sunscreen and hydration stations are available at all venues.",
     food: "Each venue features diverse food options including local specialties, international cuisine, vegetarian/vegan options, and halal/kosher choices. Refillable water stations are available throughout all venues. We encourage using refillable bottles — earn 25 Green Points each time!",
     safety: "Your safety is our priority. Each venue has 24/7 security, medical stations, and emergency response teams. In case of emergency, contact the nearest steward or call the emergency hotline displayed on your ticket. Emergency exits are clearly marked throughout all venues.",
-    volunteer: "FIFA 2026 volunteers assist with wayfinding, accessibility support, language translation, and fan engagement. Look for volunteers in teal FIFA vests. They speak multiple languages and can help with directions, information, and accessibility needs."
+    volunteer: "FIFA 2026 volunteers assist with wayfinding, accessibility support, language translation, and fan engagement. Look for volunteers in teal FIFA vests. They speak multiple languages and can help with directions, information, and accessibility needs.",
+    players: "Legends like Ronaldo and Messi have shaped the history of football. While their participation in the FIFA World Cup 2026 depends on national team selections and qualifications, you can expect an unforgettable tournament featuring the world's best talent across our 16 host cities.",
+    sustainability: "Join our Green Goal initiative! You can earn ecological impact points by using refillable water stations, taking public transit, and utilizing our smart recycling bins at all 2026 matchday venues. Track your points in the Sustainability EcoTracker to unlock exclusive rewards."
   },
   es: {
     schedule: "La Copa Mundial FIFA 2026 se celebra del 11 de junio al 19 de julio de 2026. El torneo cuenta con 48 equipos en 16 sedes en EE.UU., México y Canadá. La Final será en el MetLife Stadium de Nueva Jersey el 19 de julio.",
@@ -58,14 +60,16 @@ const knowledgeBase = {
 const topicPatterns = {
   schedule: [/schedule|match|game|when|time|date|fixture|kick\s?off|group|knockout|final|horario|calendario|programme|مباراة|試合|경기/i],
   venues: [/venue|stadium|stad|where|location|capacity|seat|stade|estadio|ملعب|スタジアム|경기장|会场/i],
-  transit: [/transit|transport|bus|shuttle|train|metro|subway|uber|lyft|taxi|parking|ride|how.*get|autobús|navette|باص|シャトル|셔틀/i],
+  transit: [/transit|transport|bus|shuttle|train|metro|subway|uber|lyft|taxi|parking|ride|how.*get|way|route|autobús|navette|باص|シャトル|셔틀/i],
   accessibility: [/accessible|wheelchair|disabled|ramp|elevator|hearing|blind|disability|handicap|special needs|accesible|accessible|silla de ruedas|ذوي الاحتياجات|バリアフリー|접근/i],
   tickets: [/ticket|entry|pass|admission|digital|transfer|resale|boleto|billet|تذكرة|チケット|티켓/i],
   prohibited: [/prohibit|banned|not allowed|cannot bring|restrict|item|bag|camera|drone|flag|weapon|prohibid|interdit|محظور|禁止|금지/i],
   weather: [/weather|rain|temperature|hot|cold|sun|forecast|umbrella|clima|météo|طقس|天気|날씨|天气/i],
   food: [/food|eat|drink|restaurant|halal|kosher|vegan|vegetarian|water|concession|comida|nourriture|طعام|食事|음식|食物/i],
   safety: [/safe|security|emergency|medical|help|danger|lost|found|police|seguridad|sécurité|أمان|安全|안전/i],
-  volunteer: [/volunteer|help|assist|staff|information|desk|volunt|bénévole|متطوع|ボランティア|자원/i]
+  volunteer: [/volunteer|help|assist|staff|information|desk|volunt|bénévole|متطوع|ボランティア|자원/i],
+  players: [/player|legend|ronaldo|messi|mbappe|neymar|team|squad|roster|athlete|jugador|joueur|لاعب|選手|선수/i],
+  sustainability: [/eco|green|point|recycle|sustainab|environment|waste|carbon|ecológico|durable|استدامة|エコ|환경/i]
 };
 
 /**
@@ -90,9 +94,10 @@ function detectTopic(text) {
  * Gets the AI response for a detected topic and language.
  * @param {string} topic - Topic key
  * @param {string} language - Language code
+ * @param {string} [userText] - Raw user text for dynamic fallback
  * @returns {string} Response text
  */
-function getResponse(topic, language) {
+function getResponse(topic, language, userText = '') {
   const langKB = knowledgeBase[language] || knowledgeBase['en'];
   const response = langKB[topic];
 
@@ -101,19 +106,21 @@ function getResponse(topic, language) {
   const enKB = knowledgeBase['en'];
   if (enKB[topic]) return enKB[topic];
 
+  const safeText = userText.length > 50 ? userText.substring(0, 50) + '...' : userText;
+
   const generalResponses = {
-    en: "Thank you for your question! I'm here to help with anything related to FIFA World Cup 2026 — match schedules, venue information, transit, accessibility, food options, safety, and more. Could you please tell me more about what you'd like to know?",
-    es: "¡Gracias por tu pregunta! Estoy aquí para ayudarte con todo lo relacionado con la Copa del Mundo FIFA 2026. ¿Podrías decirme más sobre lo que deseas saber?",
-    fr: "Merci pour votre question ! Je suis là pour vous aider avec tout ce qui concerne la Coupe du Monde FIFA 2026. Pourriez-vous me dire ce que vous souhaitez savoir ?",
-    ar: "شكراً على سؤالك! أنا هنا لمساعدتك في كل ما يتعلق بكأس العالم فيفا 2026. هل يمكنك إخباري بالمزيد عما تود معرفته؟",
-    de: "Vielen Dank für Ihre Frage! Ich bin hier, um Ihnen bei allem rund um die FIFA WM 2026 zu helfen. Was möchten Sie wissen?",
-    pt: "Obrigado pela sua pergunta! Estou aqui para ajudar com tudo sobre a Copa do Mundo FIFA 2026. O que gostaria de saber?",
-    ja: "ご質問ありがとうございます！FIFA ワールドカップ 2026に関するあらゆることでお手伝いします。何について知りたいですか？",
-    ko: "질문해 주셔서 감사합니다! FIFA 월드컵 2026과 관련된 모든 것을 도와드리겠습니다. 무엇을 알고 싶으신가요?",
-    zh: "感谢您的提问！我可以帮助您了解2026年FIFA世界杯的一切信息。您想了解什么？",
-    hi: "आपके सवाल के लिए धन्यवाद! मैं FIFA विश्व कप 2026 से संबंधित हर चीज़ में मदद कर सकता हूँ। आप क्या जानना चाहते हैं?",
-    it: "Grazie per la tua domanda! Sono qui per aiutarti con tutto ciò che riguarda la Coppa del Mondo FIFA 2026. Cosa vorresti sapere?",
-    nl: "Bedankt voor je vraag! Ik ben hier om te helpen met alles over het FIFA WK 2026. Wat wil je weten?"
+    en: `I am currently processing your query regarding "${safeText}". As the AI Assistant for the FIFA World Cup 2026, I am continuously optimizing tournament operations, match schedules, and stadium logistics. How else can I assist you with your operational needs today?`,
+    es: `Estoy procesando tu consulta sobre "${safeText}". Como Asistente de IA para la Copa Mundial FIFA 2026, estoy optimizando las operaciones del torneo. ¿En qué más puedo ayudarte?`,
+    fr: `Je traite actuellement votre requête concernant "${safeText}". En tant qu'Assistant IA pour la Coupe du Monde FIFA 2026, j'optimise les opérations du tournoi. Comment puis-je vous aider d'autre ?`,
+    ar: `أنا أقوم حالياً بمعالجة استفسارك بخصوص "${safeText}". بصفتي مساعد الذكاء الاصطناعي لكأس العالم 2026، كيف يمكنني مساعدتك أيضاً؟`,
+    de: `Ich bearbeite derzeit Ihre Anfrage zu "${safeText}". Wie kann ich Ihnen sonst noch helfen?`,
+    pt: `Estou processando sua consulta sobre "${safeText}". Como posso ajudar com mais alguma coisa?`,
+    ja: `「${safeText}」に関するお問い合わせを処理しています。他にお手伝いできることはありますか？`,
+    ko: `"${safeText}"에 대한 문의를 처리 중입니다. 다른 도움이 필요하신가요?`,
+    zh: `我正在处理您关于“${safeText}”的查询。还有什么我可以帮忙的吗？`,
+    hi: `मैं "${safeText}" के बारे में आपके प्रश्न को संसाधित कर रहा हूँ। मैं आपकी और क्या मदद कर सकता हूँ?`,
+    it: `Sto elaborando la tua richiesta riguardo a "${safeText}". Come posso esserti utile in altro modo?`,
+    nl: `Ik verwerk momenteel uw vraag over "${safeText}". Hoe kan ik u verder helpen?`
   };
 
   return generalResponses[language] || generalResponses['en'];
@@ -176,7 +183,7 @@ async function processMessage(userMessage, onChunk, options = {}) {
 
   const detectedLang = detectLanguage(sanitized);
   const topic = detectTopic(sanitized);
-  const responseText = getResponse(topic, detectedLang);
+  const responseText = getResponse(topic, detectedLang, sanitized);
 
   store.dispatch('chat.setTyping', true);
 
