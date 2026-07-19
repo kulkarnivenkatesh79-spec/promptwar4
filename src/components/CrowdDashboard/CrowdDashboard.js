@@ -14,7 +14,7 @@ import { createElement, replaceChildren } from '../../core/dom.js';
  * @returns {Object} Component with render, mount, unmount methods
  */
 function _renderLoadingState() {
-  return createElement('div', { class: 'text-center', style: 'padding: var(--space-8); color: var(--color-text-muted);' }, ['Loading crowd data...']);
+  return createElement('div', { id: 'tournament-ops-hub', class: 'text-center', style: 'padding: var(--space-8); color: var(--color-text-muted);' }, ['Loading crowd data...']);
 }
 
 function _renderStatCards(data) {
@@ -69,7 +69,7 @@ export default function TournamentOperationsHub() {
     const heatmapSection = _renderHeatmapSection();
     const rightPanel = _renderRightPanel(gateList, data.aiSuggestions.map((s) => renderAISuggestion(s)));
 
-    return createElement('div', { class: 'flex flex-col gap-6' }, [
+    return createElement('div', { id: 'tournament-ops-hub', class: 'flex flex-col gap-6' }, [
       createElement('div', { class: 'flex justify-between items-center' }, [
         createElement('h2', { style: 'font-size: var(--text-2xl);' }, [data.venueName]),
         createElement('div', { class: 'flex items-center gap-2' }, [
@@ -185,11 +185,25 @@ export default function TournamentOperationsHub() {
   function updateDashboard(data) {
     if (typeof data !== 'object' || !data) return;
     const totalEl = document.getElementById('crowd-total-display');
+    const container = document.getElementById('tournament-ops-hub');
+
+    if (!totalEl && container) {
+      const newEl = render();
+      container.parentNode.replaceChild(newEl, container);
+      
+      canvasElement = document.getElementById('crowd-heatmap-canvas');
+      if (canvasElement) {
+        canvasContext = canvasElement.getContext('2d', { willReadFrequently: true });
+        if (data.heatmapPoints) initializeRealTimeHeatmap(data.heatmapPoints);
+      }
+      return;
+    }
+
+    if (totalEl) totalEl.textContent = data.currentOccupancy.toLocaleString();
     const chokesEl = document.getElementById('crowd-chokes-display');
     const gatesListEl = document.getElementById('crowd-gates-list');
     const aiListEl = document.getElementById('crowd-ai-list');
 
-    if (totalEl) totalEl.textContent = data.currentOccupancy.toLocaleString();
     if (chokesEl) {
       chokesEl.textContent = data.chokePoints.length;
       chokesEl.style.webkitTextFillColor = data.chokePoints.length > 0 ? 'var(--color-accent-red)' : '';
