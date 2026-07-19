@@ -16,7 +16,8 @@ export function createElement(tag, attributes = {}, children = []) {
   for (const [key, value] of Object.entries(attributes || {})) {
     if (key.startsWith('on') && typeof value === 'function') {
       const eventName = key.slice(2).toLowerCase();
-      el.addEventListener(eventName, value);
+      const isPassive = ['wheel', 'touchstart', 'touchmove', 'scroll'].includes(eventName);
+      el.addEventListener(eventName, value, isPassive ? { passive: true } : undefined);
     } else if (key === 'className' || key === 'class') {
       el.className = value;
     } else if (key === 'style' && typeof value === 'object') {

@@ -19,7 +19,7 @@ function withErrorBoundary(fn) {
   try {
     fn();
   } catch (err) {
-    console.error('[App] Caught in Error Boundary:', err);
+
     renderFallbackUI(err.message || 'An unexpected error occurred');
   }
 }

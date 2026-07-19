@@ -56,7 +56,7 @@ function createEventBus() {
         try {
           handler(data);
         } catch (err) {
-          console.error(`[EventBus] Error in handler for "${event}":`, err);
+
         }
       });
     }
@@ -67,7 +67,7 @@ function createEventBus() {
         try {
           handler({ event, data });
         } catch (err) {
-          console.error(`[EventBus] Error in wildcard handler:`, err);
+
         }
       });
     }

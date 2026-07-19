@@ -314,7 +314,7 @@ export default function ChatWindow() {
     };
 
     recognition.onerror = (event) => {
-      console.error('[Voice] Recognition error:', event.error);
+
       announceToScreenReader('Voice input error. Please try again.');
     };
 

@@ -138,7 +138,7 @@ function createStore() {
         try {
           callback(frozenSlice, key);
         } catch (err) {
-          console.error(`[Store] Subscriber error for "${key}":`, err);
+
         }
       });
     }
@@ -149,7 +149,7 @@ function createStore() {
         try {
           callback(frozenState, key);
         } catch (err) {
-          console.error(`[Store] Wildcard subscriber error:`, err);
+
         }
       });
     }
@@ -220,7 +220,7 @@ function createStore() {
       notifySubscribers(slice);
     } catch (err) {
       state[slice] = prevState;
-      console.error(`[Store] Action "${action}" failed, state rolled back:`, err);
+
       throw err;
     }
   }

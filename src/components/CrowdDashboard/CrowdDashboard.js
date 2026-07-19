@@ -44,7 +44,7 @@ export default function CrowdDashboard() {
     const heatmapSection = createElement('section', { class: 'glass-card', aria: { labelledby: 'crowd-heatmap-heading' } }, [
       createElement('h3', { id: 'crowd-heatmap-heading', style: 'margin-bottom: var(--space-4);' }, ['🌡️ Heatmap & Zones']),
       createElement('div', { style: 'position: relative; width: 100%; aspect-ratio: 16/9; background: var(--color-bg-tertiary); border-radius: var(--radius-md); overflow: hidden;' }, [
-        createElement('canvas', { id: 'crowd-heatmap-canvas', style: 'width: 100%; height: 100%; display: block;' })
+        createElement('canvas', { id: 'crowd-heatmap-canvas', width: '800', height: '450', style: 'width: 100%; height: 100%; display: block;' })
       ])
     ]);
 

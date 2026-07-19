@@ -117,7 +117,7 @@ async function runBeforeHooks(from, to) {
       const result = await hook(from, to);
       if (result === false) return false;
     } catch (err) {
-      console.error('[Router] beforeNavigate hook error:', err);
+
       return false;
     }
   }
@@ -157,7 +157,7 @@ async function navigateTo(hash, options = {}) {
     try {
       currentPageInstance.unmount();
     } catch (err) {
-      console.error('[Router] Error unmounting page:', err);
+
     }
     currentPageInstance = null;
   }
@@ -210,7 +210,7 @@ async function navigateTo(hash, options = {}) {
     announceToScreenReader(`Navigated to ${route.title}`);
 
   } catch (err) {
-    console.error('[Router] Failed to load page:', err);
+
     const retryButton = createElement('button', { class: 'btn btn--primary', id: 'retry-page-btn', type: 'button' }, ['Retry']);
     retryButton.addEventListener('click', () => {
       moduleCache.delete(hash);

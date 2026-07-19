@@ -9,12 +9,12 @@ import { initApp } from './app.js';
  * Global error boundary: catches unhandled errors and renders a recovery UI.
  */
 window.addEventListener('error', (event) => {
-  console.error('[App] Unhandled error:', event.error);
+
   renderErrorBoundary(event.error?.message || 'An unexpected error occurred');
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('[App] Unhandled promise rejection:', event.reason);
+
   event.preventDefault();
 });
 

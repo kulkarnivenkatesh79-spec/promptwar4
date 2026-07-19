@@ -100,7 +100,7 @@ function t(key, params = {}) {
  */
 function setLocale(locale) {
   if (!SUPPORTED_LOCALES.includes(locale)) {
-    console.warn(`[i18n] Unsupported locale: "${locale}", falling back to English`);
+
     locale = 'en';
   }
 
@@ -116,7 +116,7 @@ function setLocale(locale) {
     try {
       listener(locale);
     } catch (err) {
-      console.error('[i18n] Locale change listener error:', err);
+
     }
   });
 }
