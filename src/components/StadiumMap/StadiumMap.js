@@ -4,10 +4,43 @@
  * @module components/StadiumMap/StadiumMap
  */
 
-import { escapeHTML } from '../../core/security.js';
 import { t } from '../../core/i18n.js';
 import { announceToScreenReader } from '../../core/accessibility.js';
 import { generateCrowdData } from '../../data/mockCrowdData.js';
+import { createElement } from '../../core/dom.js';
+
+/** SVG namespace constant */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Creates an SVG element with attributes.
+ * @param {string} tag - SVG tag name
+ * @param {Object} attrs - Attributes
+ * @param {Array} [children=[]] - Child elements or text
+ * @returns {SVGElement} Created SVG element
+ */
+function svgEl(tag, attrs = {}, children = []) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === 'style' && typeof value === 'string') {
+      el.setAttribute('style', value);
+    } else if (key === 'aria') {
+      for (const [ariaKey, ariaValue] of Object.entries(value)) {
+        el.setAttribute(`aria-${ariaKey}`, ariaValue);
+      }
+    } else if (value !== null && value !== undefined && value !== false) {
+      el.setAttribute(key, String(value));
+    }
+  }
+  children.forEach(child => {
+    if (typeof child === 'string') {
+      el.appendChild(document.createTextNode(child));
+    } else if (child instanceof Node) {
+      el.appendChild(child);
+    }
+  });
+  return el;
+}
 
 /**
  * Creates the Stadium Map component with integrated heatmap overlay.
@@ -31,135 +64,131 @@ export default function StadiumMap() {
   };
 
   /**
-   * Renders the stadium map HTML.
-   * @returns {string} HTML string
-   */
-  function render() {
-    return `
-      <div class="stadium-map-container" role="img" aria-label="Interactive stadium map showing crowd density">
-        <div style="position: relative;">
-          <svg viewBox="0 0 800 500" class="stadium-map-svg" id="stadium-svg"
-            role="group" aria-label="Stadium sections">
-            <!-- Stadium Outline -->
-            <ellipse cx="400" cy="250" rx="370" ry="220" fill="none" stroke="var(--glass-border)" stroke-width="2" />
-            <ellipse cx="400" cy="250" rx="320" ry="180" fill="none" stroke="var(--glass-border)" stroke-width="1" stroke-dasharray="4 4" />
-
-            <!-- Field -->
-            <rect x="250" y="160" width="300" height="180" rx="8" fill="#0d3320" stroke="#2a7a4a" stroke-width="1.5" aria-label="Playing field" />
-            <line x1="400" y1="160" x2="400" y2="340" stroke="#2a7a4a" stroke-width="1" />
-            <circle cx="400" cy="250" r="40" fill="none" stroke="#2a7a4a" stroke-width="1" />
-            <circle cx="400" cy="250" r="3" fill="#2a7a4a" />
-
-            <!-- Level 100 Sections -->
-            ${generateSectionSVG('101', 'M 100 180 L 180 140 L 230 160 L 160 210 Z', 1)}
-            ${generateSectionSVG('102', 'M 230 120 L 330 90 L 350 130 L 250 150 Z', 1)}
-            ${generateSectionSVG('103', 'M 350 80 L 450 75 L 450 125 L 350 130 Z', 1)}
-            ${generateSectionSVG('104', 'M 450 75 L 550 80 L 550 130 L 450 125 Z', 1)}
-            ${generateSectionSVG('105', 'M 550 90 L 650 120 L 630 150 L 550 130 Z', 1)}
-            ${generateSectionSVG('106', 'M 650 140 L 700 180 L 640 210 L 620 160 Z', 1)}
-
-            <!-- Level 200 Sections (opposite side) -->
-            ${generateSectionSVG('201', 'M 100 320 L 160 290 L 230 340 L 180 360 Z', 2)}
-            ${generateSectionSVG('202', 'M 230 350 L 250 340 L 350 370 L 330 410 Z', 2)}
-            ${generateSectionSVG('203', 'M 350 370 L 450 375 L 450 420 L 350 415 Z', 2)}
-            ${generateSectionSVG('204', 'M 450 375 L 550 370 L 550 415 L 450 420 Z', 2)}
-            ${generateSectionSVG('205', 'M 550 370 L 630 340 L 650 360 L 550 410 Z', 2)}
-            ${generateSectionSVG('206', 'M 640 290 L 700 320 L 680 360 L 620 340 Z', 2)}
-
-            <!-- Gates -->
-            ${generateGateSVG('A', 400, 30)}
-            ${generateGateSVG('B', 750, 250)}
-            ${generateGateSVG('C', 400, 470)}
-            ${generateGateSVG('D', 50, 250)}
-
-            <!-- Accessible Pathways -->
-            <g class="accessible-paths" aria-label="Accessible pathways">
-              <path d="M 400 30 L 400 80" stroke="var(--color-accent-gold)" stroke-width="3" stroke-dasharray="6 3" fill="none" aria-label="Accessible path from Gate A" />
-              <path d="M 750 250 L 700 250" stroke="var(--color-accent-gold)" stroke-width="3" stroke-dasharray="6 3" fill="none" aria-label="Accessible path from Gate B" />
-              <path d="M 400 470 L 400 420" stroke="var(--color-accent-gold)" stroke-width="3" stroke-dasharray="6 3" fill="none" aria-label="Accessible path from Gate C" />
-              <path d="M 50 250 L 100 250" stroke="var(--color-accent-gold)" stroke-width="3" stroke-dasharray="6 3" fill="none" aria-label="Accessible path from Gate D" />
-            </g>
-
-            <!-- Facility Icons -->
-            <text x="160" y="255" font-size="16" fill="var(--color-accent-gold)" aria-label="Elevator">🛗</text>
-            <text x="620" y="255" font-size="16" fill="var(--color-accent-gold)" aria-label="Elevator">🛗</text>
-            <text x="390" y="455" font-size="14" fill="var(--color-accent-green)" aria-label="First Aid">🏥</text>
-            <text x="390" y="50" font-size="14" fill="var(--color-accent-cyan)" aria-label="Information">ℹ️</text>
-          </svg>
-
-          <canvas id="heatmap-canvas" class="heatmap-canvas" aria-hidden="true"></canvas>
-        </div>
-
-        <!-- Legend -->
-        <div class="stadium-legend" role="list" aria-label="Map legend">
-          <div class="stadium-legend__item" role="listitem">
-            <div class="stadium-legend__color" style="background: ${sectionColors.normal};"></div>
-            <span>Normal (&lt;80%)</span>
-          </div>
-          <div class="stadium-legend__item" role="listitem">
-            <div class="stadium-legend__color" style="background: ${sectionColors.warning};"></div>
-            <span>Warning (80–95%)</span>
-          </div>
-          <div class="stadium-legend__item" role="listitem">
-            <div class="stadium-legend__color" style="background: ${sectionColors.critical};"></div>
-            <span>Critical (&gt;95%)</span>
-          </div>
-          <div class="stadium-legend__item" role="listitem">
-            <div class="stadium-legend__color" style="background: var(--color-accent-gold); border: 1px dashed var(--color-accent-gold);"></div>
-            <span>Accessible Path</span>
-          </div>
-          <div class="stadium-legend__item" role="listitem">
-            <div class="stadium-legend__color" style="background: var(--color-accent-cyan);"></div>
-            <span>Selected Section</span>
-          </div>
-        </div>
-
-        <!-- Section Info Tooltip -->
-        <div id="section-tooltip" style="display: none; position: absolute; z-index: var(--z-tooltip);"
-          class="glass-card" role="tooltip" aria-live="polite">
-        </div>
-
-        <!-- Screen Reader Summary -->
-        <div class="sr-only" id="map-sr-summary" aria-live="polite" role="status"></div>
-      </div>
-    `;
-  }
-
-  /**
-   * Generates SVG markup for a stadium section.
+   * Generates an SVG path element for a stadium section.
    * @param {string} id - Section identifier
-   * @param {string} path - SVG path data
-   * @param {number} level - Section level (1, 2, 3)
-   * @returns {string} SVG markup
+   * @param {string} pathD - SVG path data
+   * @param {number} level - Section level
+   * @returns {SVGElement} Section path element
    */
-  function generateSectionSVG(id, path, level) {
+  function generateSectionEl(id, pathD, level) {
     const density = 0.3 + Math.random() * 0.6;
     const status = density > 0.95 ? 'critical' : density > 0.8 ? 'warning' : 'normal';
     const fill = sectionColors[status];
 
-    return `
-      <path d="${path}" fill="${fill}" fill-opacity="0.6" stroke="var(--glass-border)" stroke-width="1"
-        class="stadium-section" data-section="${id}" data-level="${level}" data-density="${Math.round(density * 100)}"
-        role="button" tabindex="0"
-        aria-label="Section ${id}, Level ${level}, ${Math.round(density * 100)}% occupied, status ${status}"
-        style="cursor: pointer; transition: fill 0.3s ease;" />
-    `;
+    return svgEl('path', {
+      d: pathD,
+      fill: fill,
+      'fill-opacity': '0.6',
+      stroke: 'var(--glass-border)',
+      'stroke-width': '1',
+      class: 'stadium-section',
+      'data-section': id,
+      'data-level': String(level),
+      'data-density': String(Math.round(density * 100)),
+      role: 'button',
+      tabindex: '0',
+      aria: { label: `Section ${id}, Level ${level}, ${Math.round(density * 100)}% occupied, status ${status}` },
+      style: 'cursor: pointer; transition: fill 0.3s ease;'
+    });
   }
 
   /**
-   * Generates SVG markup for a gate indicator.
+   * Generates an SVG group element for a gate indicator.
    * @param {string} name - Gate name
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
-   * @returns {string} SVG markup
+   * @returns {SVGElement} Gate group element
    */
-  function generateGateSVG(name, x, y) {
-    return `
-      <g data-gate="${name}" role="button" tabindex="0" aria-label="Gate ${name}">
-        <circle cx="${x}" cy="${y}" r="18" fill="var(--color-bg-tertiary)" stroke="var(--color-accent-cyan)" stroke-width="2" />
-        <text x="${x}" y="${y + 5}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--color-accent-cyan)">${name}</text>
-      </g>
-    `;
+  function generateGateEl(name, x, y) {
+    return svgEl('g', { 'data-gate': name, role: 'button', tabindex: '0', aria: { label: `Gate ${name}` } }, [
+      svgEl('circle', { cx: String(x), cy: String(y), r: '18', fill: 'var(--color-bg-tertiary)', stroke: 'var(--color-accent-cyan)', 'stroke-width': '2' }),
+      svgEl('text', { x: String(x), y: String(y + 5), 'text-anchor': 'middle', 'font-size': '12', 'font-weight': '700', fill: 'var(--color-accent-cyan)' }, [name])
+    ]);
+  }
+
+  /**
+   * Renders the stadium map as a DOM element.
+   * @returns {HTMLElement} Stadium map container
+   */
+  function render() {
+    const svg = svgEl('svg', { viewBox: '0 0 800 500', class: 'stadium-map-svg', id: 'stadium-svg', role: 'group', aria: { label: 'Stadium sections' } }, [
+      // Stadium Outline
+      svgEl('ellipse', { cx: '400', cy: '250', rx: '370', ry: '220', fill: 'none', stroke: 'var(--glass-border)', 'stroke-width': '2' }),
+      svgEl('ellipse', { cx: '400', cy: '250', rx: '320', ry: '180', fill: 'none', stroke: 'var(--glass-border)', 'stroke-width': '1', 'stroke-dasharray': '4 4' }),
+
+      // Field
+      svgEl('rect', { x: '250', y: '160', width: '300', height: '180', rx: '8', fill: '#0d3320', stroke: '#2a7a4a', 'stroke-width': '1.5', aria: { label: 'Playing field' } }),
+      svgEl('line', { x1: '400', y1: '160', x2: '400', y2: '340', stroke: '#2a7a4a', 'stroke-width': '1' }),
+      svgEl('circle', { cx: '400', cy: '250', r: '40', fill: 'none', stroke: '#2a7a4a', 'stroke-width': '1' }),
+      svgEl('circle', { cx: '400', cy: '250', r: '3', fill: '#2a7a4a' }),
+
+      // Level 100 Sections
+      generateSectionEl('101', 'M 100 180 L 180 140 L 230 160 L 160 210 Z', 1),
+      generateSectionEl('102', 'M 230 120 L 330 90 L 350 130 L 250 150 Z', 1),
+      generateSectionEl('103', 'M 350 80 L 450 75 L 450 125 L 350 130 Z', 1),
+      generateSectionEl('104', 'M 450 75 L 550 80 L 550 130 L 450 125 Z', 1),
+      generateSectionEl('105', 'M 550 90 L 650 120 L 630 150 L 550 130 Z', 1),
+      generateSectionEl('106', 'M 650 140 L 700 180 L 640 210 L 620 160 Z', 1),
+
+      // Level 200 Sections
+      generateSectionEl('201', 'M 100 320 L 160 290 L 230 340 L 180 360 Z', 2),
+      generateSectionEl('202', 'M 230 350 L 250 340 L 350 370 L 330 410 Z', 2),
+      generateSectionEl('203', 'M 350 370 L 450 375 L 450 420 L 350 415 Z', 2),
+      generateSectionEl('204', 'M 450 375 L 550 370 L 550 415 L 450 420 Z', 2),
+      generateSectionEl('205', 'M 550 370 L 630 340 L 650 360 L 550 410 Z', 2),
+      generateSectionEl('206', 'M 640 290 L 700 320 L 680 360 L 620 340 Z', 2),
+
+      // Gates
+      generateGateEl('A', 400, 30),
+      generateGateEl('B', 750, 250),
+      generateGateEl('C', 400, 470),
+      generateGateEl('D', 50, 250),
+
+      // Accessible Pathways
+      svgEl('g', { class: 'accessible-paths', aria: { label: 'Accessible pathways' } }, [
+        svgEl('path', { d: 'M 400 30 L 400 80', stroke: 'var(--color-accent-gold)', 'stroke-width': '3', 'stroke-dasharray': '6 3', fill: 'none', aria: { label: 'Accessible path from Gate A' } }),
+        svgEl('path', { d: 'M 750 250 L 700 250', stroke: 'var(--color-accent-gold)', 'stroke-width': '3', 'stroke-dasharray': '6 3', fill: 'none', aria: { label: 'Accessible path from Gate B' } }),
+        svgEl('path', { d: 'M 400 470 L 400 420', stroke: 'var(--color-accent-gold)', 'stroke-width': '3', 'stroke-dasharray': '6 3', fill: 'none', aria: { label: 'Accessible path from Gate C' } }),
+        svgEl('path', { d: 'M 50 250 L 100 250', stroke: 'var(--color-accent-gold)', 'stroke-width': '3', 'stroke-dasharray': '6 3', fill: 'none', aria: { label: 'Accessible path from Gate D' } })
+      ]),
+
+      // Facility Icons
+      svgEl('text', { x: '160', y: '255', 'font-size': '16', fill: 'var(--color-accent-gold)', aria: { label: 'Elevator' } }, ['🛗']),
+      svgEl('text', { x: '620', y: '255', 'font-size': '16', fill: 'var(--color-accent-gold)', aria: { label: 'Elevator' } }, ['🛗']),
+      svgEl('text', { x: '390', y: '455', 'font-size': '14', fill: 'var(--color-accent-green)', aria: { label: 'First Aid' } }, ['🏥']),
+      svgEl('text', { x: '390', y: '50', 'font-size': '14', fill: 'var(--color-accent-cyan)', aria: { label: 'Information' } }, ['ℹ️'])
+    ]);
+
+    const legendItems = [
+      { color: sectionColors.normal, label: 'Normal (<80%)' },
+      { color: sectionColors.warning, label: 'Warning (80–95%)' },
+      { color: sectionColors.critical, label: 'Critical (>95%)' },
+      { color: 'var(--color-accent-gold)', label: 'Accessible Path', border: true },
+      { color: 'var(--color-accent-cyan)', label: 'Selected Section' }
+    ];
+
+    return createElement('div', { class: 'stadium-map-container', role: 'img', aria: { label: 'Interactive stadium map showing crowd density' } }, [
+      createElement('div', { style: 'position: relative;' }, [
+        svg,
+        createElement('canvas', { id: 'heatmap-canvas', class: 'heatmap-canvas', aria: { hidden: 'true' } })
+      ]),
+
+      // Legend
+      createElement('div', { class: 'stadium-legend', role: 'list', aria: { label: 'Map legend' } },
+        legendItems.map(item =>
+          createElement('div', { class: 'stadium-legend__item', role: 'listitem' }, [
+            createElement('div', { class: 'stadium-legend__color', style: `background: ${item.color};${item.border ? ' border: 1px dashed ' + item.color + ';' : ''}` }),
+            createElement('span', {}, [item.label])
+          ])
+        )
+      ),
+
+      // Section Info Tooltip
+      createElement('div', { id: 'section-tooltip', style: 'display: none; position: absolute; z-index: var(--z-tooltip);', class: 'glass-card', role: 'tooltip', aria: { live: 'polite' } }),
+
+      // Screen Reader Summary
+      createElement('div', { class: 'sr-only', id: 'map-sr-summary', aria: { live: 'polite' }, role: 'status' })
+    ]);
   }
 
   /**

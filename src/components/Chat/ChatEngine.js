@@ -289,6 +289,7 @@ If a question is outside this scope, politely state you only answer questions re
       topic
     };
   } catch (err) {
+    console.error('CHAT ENGINE ERROR:', err);
     store.dispatch('chat.setTyping', false);
 
     if (err.name === 'AbortError') throw err;

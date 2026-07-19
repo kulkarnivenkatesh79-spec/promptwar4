@@ -4,8 +4,8 @@
  */
 import SmartNav from '../components/Navigation/SmartNav.js';
 import StadiumMap from '../components/StadiumMap/StadiumMap.js';
-import { escapeHTML } from '../core/security.js';
 import { t } from '../core/i18n.js';
+import { createElement } from '../core/dom.js';
 
 export default function NavigationPage() {
   let navInstance = null;
@@ -13,16 +13,16 @@ export default function NavigationPage() {
   function render() {
     navInstance = SmartNav();
     mapInstance = StadiumMap();
-    return `
-      <section class="page-header" aria-labelledby="nav-heading">
-        <h1 id="nav-heading" class="page-header__title">🗺️ ${escapeHTML(t('navigation.title'))}</h1>
-        <p class="page-header__subtitle">${escapeHTML(t('navigation.subtitle'))}</p>
-      </section>
-      <div class="dashboard-grid dashboard-grid--2" style="grid-template-columns: 1fr 1fr;">
-        <div>${mapInstance.render()}</div>
-        <div>${navInstance.render()}</div>
-      </div>
-    `;
+    return createElement('div', {}, [
+      createElement('section', { class: 'page-header', aria: { labelledby: 'nav-heading' } }, [
+        createElement('h1', { id: 'nav-heading', class: 'page-header__title' }, [`🗺️ ${t('navigation.title')}`]),
+        createElement('p', { class: 'page-header__subtitle' }, [t('navigation.subtitle')])
+      ]),
+      createElement('div', { class: 'dashboard-grid dashboard-grid--2', style: 'grid-template-columns: 1fr 1fr;' }, [
+        createElement('div', {}, [mapInstance.render()]),
+        createElement('div', {}, [navInstance.render()])
+      ])
+    ]);
   }
   function mount() { if (navInstance) navInstance.mount(); if (mapInstance) mapInstance.mount(); }
   function unmount() { if (navInstance) { navInstance.unmount(); navInstance = null; } if (mapInstance) { mapInstance.unmount(); mapInstance = null; } }

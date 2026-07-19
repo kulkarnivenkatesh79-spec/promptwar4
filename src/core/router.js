@@ -5,6 +5,7 @@
 
 import store from './store.js';
 import { announceToScreenReader, manageFocusOnRouteChange } from './accessibility.js';
+import { createElement, replaceChildren } from './dom.js';
 
 /**
  * @typedef {Object} RouteConfig
@@ -164,12 +165,12 @@ async function navigateTo(hash, options = {}) {
   const mainEl = document.getElementById('main-content');
   if (!mainEl) return;
 
-  mainEl.innerHTML = `
-    <div class="flex justify-center items-center" style="min-height: 300px;" role="status" aria-label="Loading page">
-      <div class="btn-spinner" style="width: 32px; height: 32px; border-width: 3px;"></div>
-      <span class="sr-only">Loading page content</span>
-    </div>
-  `;
+  replaceChildren(mainEl, [
+    createElement('div', { class: 'flex justify-center items-center', style: 'min-height: 300px;', role: 'status', aria: { label: 'Loading page' } }, [
+      createElement('div', { class: 'btn-spinner', style: 'width: 32px; height: 32px; border-width: 3px;' }),
+      createElement('span', { class: 'sr-only' }, ['Loading page content'])
+    ])
+  ]);
 
   try {
     let pageModule;
@@ -184,12 +185,11 @@ async function navigateTo(hash, options = {}) {
     const instance = typeof page === 'function' ? page() : page;
 
     if (typeof instance.render === 'function') {
-      mainEl.innerHTML = '';
       const content = instance.render();
-      if (typeof content === 'string') {
+      if (content instanceof Node) {
+        replaceChildren(mainEl, [content]);
+      } else if (typeof content === 'string') {
         mainEl.innerHTML = content;
-      } else if (content instanceof HTMLElement || content instanceof DocumentFragment) {
-        mainEl.appendChild(content);
       }
     }
 
@@ -211,20 +211,19 @@ async function navigateTo(hash, options = {}) {
 
   } catch (err) {
     console.error('[Router] Failed to load page:', err);
-    mainEl.innerHTML = `
-      <section class="glass-card text-center" style="max-width: 500px; margin: var(--space-16) auto;" role="alert">
-        <h2 style="color: var(--color-accent-red); margin-bottom: var(--space-4);">⚠️ Page Load Error</h2>
-        <p style="margin-bottom: var(--space-6);">We couldn't load this page. Please try again.</p>
-        <button class="btn btn--primary" id="retry-page-btn" type="button">Retry</button>
-      </section>
-    `;
-    const retryBtn = document.getElementById('retry-page-btn');
-    if (retryBtn) {
-      retryBtn.addEventListener('click', () => {
-        moduleCache.delete(hash);
-        navigateTo(hash, { skipHooks: true });
-      });
-    }
+    const retryButton = createElement('button', { class: 'btn btn--primary', id: 'retry-page-btn', type: 'button' }, ['Retry']);
+    retryButton.addEventListener('click', () => {
+      moduleCache.delete(hash);
+      navigateTo(hash, { skipHooks: true });
+    });
+    replaceChildren(mainEl, [
+      createElement('section', { class: 'glass-card text-center', style: 'max-width: 500px; margin: var(--space-16) auto;', role: 'alert' }, [
+        createElement('h2', { style: 'color: var(--color-accent-red); margin-bottom: var(--space-4);' }, ['⚠️ Page Load Error']),
+        createElement('p', { style: 'margin-bottom: var(--space-6);' }, ["We couldn't load this page. Please try again."]),
+        retryButton
+      ])
+    ]);
+    // retry listener already attached above
     announceToScreenReader('Page failed to load. Retry button available.');
   }
 }
@@ -241,24 +240,22 @@ function renderNotFound() {
     currentPageInstance = null;
   }
 
-  mainEl.innerHTML = `
-    <section class="glass-card text-center" style="max-width: 500px; margin: var(--space-16) auto;" role="alert">
-      <h1 style="font-size: var(--text-4xl); margin-bottom: var(--space-2);">🏟️</h1>
-      <h2 style="margin-bottom: var(--space-4);">Page Not Found</h2>
-      <p style="margin-bottom: var(--space-6);">The page you're looking for doesn't exist or has been moved.</p>
-      <button class="btn btn--primary" id="go-home-btn" type="button">Go to Dashboard</button>
-    </section>
-  `;
+  const homeBtn = createElement('button', { class: 'btn btn--primary', id: 'go-home-btn', type: 'button' }, ['Go to Dashboard']);
+  homeBtn.addEventListener('click', () => {
+    const defaultRoute = getDefaultRouteForRole();
+    window.location.hash = defaultRoute;
+  });
+
+  replaceChildren(mainEl, [
+    createElement('section', { class: 'glass-card text-center', style: 'max-width: 500px; margin: var(--space-16) auto;', role: 'alert' }, [
+      createElement('h1', { style: 'font-size: var(--text-4xl); margin-bottom: var(--space-2);' }, ['🏟️']),
+      createElement('h2', { style: 'margin-bottom: var(--space-4);' }, ['Page Not Found']),
+      createElement('p', { style: 'margin-bottom: var(--space-6);' }, ["The page you're looking for doesn't exist or has been moved."]),
+      homeBtn
+    ])
+  ]);
 
   document.title = '404 — FIFA 2026 Smart Stadium';
-
-  const homeBtn = document.getElementById('go-home-btn');
-  if (homeBtn) {
-    homeBtn.addEventListener('click', () => {
-      const defaultRoute = getDefaultRouteForRole();
-      window.location.hash = defaultRoute;
-    });
-  }
 
   announceToScreenReader('Page not found. Navigation button available.');
 }

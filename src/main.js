@@ -29,18 +29,36 @@ function renderErrorBoundary(message) {
   const mainContent = document.getElementById('main-content');
   const target = mainContent || appEl;
 
-  target.innerHTML = `
-    <section class="glass-card text-center" style="max-width: 500px; margin: 5rem auto; padding: 3rem;" role="alert">
-      <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
-      <h2 style="margin-bottom: 0.5rem;">Something went wrong</h2>
-      <p style="margin-bottom: 1.5rem; color: var(--color-text-muted);">
-        ${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-      </p>
-      <button class="btn btn--primary" onclick="window.location.reload()" type="button">
-        Reload Application
-      </button>
-    </section>
-  `;
+  const reloadBtn = document.createElement('button');
+  reloadBtn.className = 'btn btn--primary';
+  reloadBtn.type = 'button';
+  reloadBtn.textContent = 'Reload Application';
+  reloadBtn.addEventListener('click', () => window.location.reload());
+
+  const section = document.createElement('section');
+  section.className = 'glass-card text-center';
+  section.style.cssText = 'max-width: 500px; margin: 5rem auto; padding: 3rem;';
+  section.setAttribute('role', 'alert');
+
+  const icon = document.createElement('div');
+  icon.style.cssText = 'font-size: 3rem; margin-bottom: 1rem;';
+  icon.textContent = '⚠️';
+
+  const heading = document.createElement('h2');
+  heading.style.marginBottom = '0.5rem';
+  heading.textContent = 'Something went wrong';
+
+  const msg = document.createElement('p');
+  msg.style.cssText = 'margin-bottom: 1.5rem; color: var(--color-text-muted);';
+  msg.textContent = message;
+
+  section.appendChild(icon);
+  section.appendChild(heading);
+  section.appendChild(msg);
+  section.appendChild(reloadBtn);
+
+  target.textContent = '';
+  target.appendChild(section);
 }
 
 /**

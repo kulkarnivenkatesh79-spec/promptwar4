@@ -182,12 +182,12 @@ function detectLanguage(text) {
 
   const lowerText = trimmed.toLowerCase();
 
-  if (/\b(hola|dónde|cómo|qué|por favor|gracias|estadio|partido)\b/.test(lowerText)) return 'es';
-  if (/\b(bonjour|où|comment|merci|stade|match|s'il vous plaît)\b/.test(lowerText)) return 'fr';
-  if (/\b(olá|onde|como|obrigado|estádio|jogo)\b/.test(lowerText)) return 'pt';
-  if (/\b(hallo|wo|wie|danke|stadion|spiel|bitte)\b/.test(lowerText)) return 'de';
-  if (/\b(ciao|dove|come|grazie|stadio|partita)\b/.test(lowerText)) return 'it';
-  if (/\b(hallo|waar|hoe|dank|stadion|wedstrijd|alstublieft)\b/.test(lowerText)) return 'nl';
+  if (/(hola|dónde|donde|cómo|qué|por favor|gracias|estadio|partido)/.test(lowerText)) return 'es';
+  if (/(bonjour|où|comment|merci|stade|match|s'il vous plaît)/.test(lowerText)) return 'fr';
+  if (/(olá|onde|como|obrigado|estádio|jogo)/.test(lowerText)) return 'pt';
+  if (/(hallo|wo|wie|danke|stadion|spiel|bitte)/.test(lowerText)) return 'de';
+  if (/(ciao|dove|come|grazie|stadio|partita)/.test(lowerText)) return 'it';
+  if (/(hallo|waar|hoe|dank|stadion|wedstrijd|alstublieft)/.test(lowerText)) return 'nl';
 
   return 'en';
 }

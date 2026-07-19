@@ -9,99 +9,153 @@ import { t, getSupportedLocales, getLocaleName, setLocale, getLocale } from './c
 import { escapeHTML } from './core/security.js';
 import { announceToScreenReader } from './core/accessibility.js';
 import eventBus from './core/eventBus.js';
+import { createElement, replaceChildren } from './core/dom.js';
+
+/**
+ * Executes a function within an error boundary.
+ * @param {Function} fn - Function to execute
+ */
+function withErrorBoundary(fn) {
+  try {
+    fn();
+  } catch (err) {
+    console.error('[App] Caught in Error Boundary:', err);
+    renderFallbackUI(err.message || 'An unexpected error occurred');
+  }
+}
+
+/**
+ * Renders a fallback UI when an error occurs.
+ * @param {string} message - Error message
+ */
+function renderFallbackUI(message) {
+  const appEl = document.getElementById('app');
+  if (!appEl) return;
+  
+  const fallback = createElement('section', { class: 'glass-card text-center', style: 'max-width: 500px; margin: 5rem auto; padding: 3rem;', role: 'alert' }, [
+    createElement('div', { style: 'font-size: 3rem; margin-bottom: 1rem;' }, ['⚠️']),
+    createElement('h2', { style: 'margin-bottom: 0.5rem;' }, ['Something went wrong']),
+    createElement('p', { style: 'margin-bottom: 1.5rem; color: var(--color-text-muted);' }, [message]),
+    createElement('button', { class: 'btn btn--primary', type: 'button', onclick: () => window.location.reload() }, ['Reload Application'])
+  ]);
+  
+  replaceChildren(appEl, [fallback]);
+}
 
 /**
  * Initializes the application shell.
  */
 export function initApp() {
-  const appEl = document.getElementById('app');
-  if (!appEl) return;
+  withErrorBoundary(() => {
+    const appEl = document.getElementById('app');
+    if (!appEl) return;
 
-  appEl.innerHTML = renderAppShell();
-  initHeader();
-  initSidebar();
-  initToastManager();
-  router.init();
+    replaceChildren(appEl, [renderAppShell()]);
+    initHeader();
+    initSidebar();
+    initToastManager();
+    router.init();
+  });
 }
 
 /**
- * Renders the full app shell HTML.
- * @returns {string} HTML string
+ * Renders the full app shell DOM element.
+ * @returns {HTMLElement} App layout element
  */
 function renderAppShell() {
   const role = store.getState('auth').role;
 
-  return `
-    <div class="app-layout">
-      <header class="app-header" role="banner">
-        <div class="flex items-center gap-4">
-          <button class="btn btn--ghost btn--icon" id="sidebar-toggle" type="button"
-            aria-label="Toggle sidebar navigation" aria-expanded="false" aria-controls="app-sidebar">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <rect y="3" width="20" height="2" rx="1"/>
-              <rect y="9" width="20" height="2" rx="1"/>
-              <rect y="15" width="20" height="2" rx="1"/>
-            </svg>
-          </button>
-          <div>
-            <span style="font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-lg);">
-              <span class="gradient-text">FIFA 2026</span>
-            </span>
-            <span style="font-size: var(--text-xs); color: var(--color-text-muted); margin-left: var(--space-2);">${escapeHTML(t('app.subtitle'))}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-4">
-          <!-- Role Switcher -->
-          <div class="role-switcher" role="tablist" aria-label="Mode selection">
-            <button class="role-switcher__option ${role === 'fan' ? 'role-switcher__option--active' : ''}"
-              id="role-fan-btn" role="tab" aria-selected="${role === 'fan'}" aria-controls="main-content"
-              type="button">
-              🎉 ${escapeHTML(t('nav.switchToFan'))}
-            </button>
-            <button class="role-switcher__option ${role === 'organizer' ? 'role-switcher__option--active' : ''}"
-              id="role-org-btn" role="tab" aria-selected="${role === 'organizer'}" aria-controls="main-content"
-              type="button">
-              ⚙️ ${escapeHTML(t('nav.switchToOrg'))}
-            </button>
-          </div>
-
-          <!-- Language Selector -->
-          <select id="global-lang-select" class="form-select" style="width: auto; padding: var(--space-2); font-size: var(--text-xs); background: var(--color-bg-tertiary);"
-            aria-label="Select interface language">
-            ${getSupportedLocales().map((l) => `<option value="${l}" ${l === getLocale() ? 'selected' : ''}>${getLocaleName(l)}</option>`).join('')}
-          </select>
-        </div>
-      </header>
-
-      <aside class="app-sidebar" id="app-sidebar" role="navigation" aria-label="Main navigation">
-        <div style="padding: 0 var(--space-4) var(--space-4);">
-          <div style="font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4);">
-            ${role === 'fan' ? '🎉 Fan Experience' : '⚙️ Staff Operations'}
-          </div>
-        </div>
-        <nav>
-          <ul class="sidebar-nav" id="sidebar-nav" role="list">
-            ${renderSidebarItems(role)}
-          </ul>
-        </nav>
-      </aside>
-
-      <main class="app-main" id="main-content" role="main" aria-label="Page content">
-        <!-- Pages render here via router -->
-      </main>
-    </div>
-  `;
+  return createElement('div', { class: 'app-layout' }, [
+    renderHeader(role),
+    renderSidebar(role),
+    createElement('main', { class: 'app-main', id: 'main-content', role: 'main', aria: { label: 'Page content' } })
+  ]);
 }
 
 /**
- * Renders sidebar navigation items based on role.
+ * Renders the application header.
  * @param {string} role - Current user role
- * @returns {string} HTML string
+ * @returns {HTMLElement} Header element
  */
-function renderSidebarItems(role) {
-  const currentRoute = window.location.hash || (role === 'fan' ? '#/fan' : '#/org');
+function renderHeader(role) {
+  return createElement('header', { class: 'app-header', role: 'banner' }, [
+    createElement('div', { class: 'flex items-center gap-4' }, [
+      createElement('button', { 
+        class: 'btn btn--ghost btn--icon', 
+        id: 'sidebar-toggle', 
+        type: 'button',
+        aria: { label: 'Toggle sidebar navigation', expanded: 'false', controls: 'app-sidebar' }
+      }, [
+        createElement('svg', { width: '20', height: '20', viewBox: '0 0 20 20', fill: 'currentColor', aria: { hidden: 'true' } }, [
+          createElement('rect', { y: '3', width: '20', height: '2', rx: '1' }),
+          createElement('rect', { y: '9', width: '20', height: '2', rx: '1' }),
+          createElement('rect', { y: '15', width: '20', height: '2', rx: '1' })
+        ])
+      ]),
+      createElement('div', {}, [
+        createElement('span', { style: 'font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-lg);' }, [
+          createElement('span', { class: 'gradient-text' }, ['FIFA 2026'])
+        ]),
+        createElement('span', { style: 'font-size: var(--text-xs); color: var(--color-text-muted); margin-left: var(--space-2);' }, [t('app.subtitle')])
+      ])
+    ]),
+    createElement('div', { class: 'flex items-center gap-4' }, [
+      renderRoleSwitcher(role),
+      renderLanguageSelector()
+    ])
+  ]);
+}
 
+/**
+ * Renders the role switcher component.
+ * @param {string} role - Current user role
+ * @returns {HTMLElement} Role switcher element
+ */
+function renderRoleSwitcher(role) {
+  return createElement('div', { class: 'role-switcher', role: 'tablist', aria: { label: 'Mode selection' } }, [
+    createElement('button', { 
+      class: `role-switcher__option ${role === 'fan' ? 'role-switcher__option--active' : ''}`,
+      id: 'role-fan-btn',
+      role: 'tab',
+      aria: { selected: role === 'fan' ? 'true' : 'false', controls: 'main-content' },
+      type: 'button'
+    }, [`🎉 ${t('nav.switchToFan')}`]),
+    createElement('button', { 
+      class: `role-switcher__option ${role === 'organizer' ? 'role-switcher__option--active' : ''}`,
+      id: 'role-org-btn',
+      role: 'tab',
+      aria: { selected: role === 'organizer' ? 'true' : 'false', controls: 'main-content' },
+      type: 'button'
+    }, [`⚙️ ${t('nav.switchToOrg')}`])
+  ]);
+}
+
+/**
+ * Renders the language selector dropdown.
+ * @returns {HTMLElement} Language selector element
+ */
+function renderLanguageSelector() {
+  const currentLocale = getLocale();
+  const options = getSupportedLocales().map(l => 
+    createElement('option', { value: l, selected: l === currentLocale }, [getLocaleName(l)])
+  );
+  
+  return createElement('select', { 
+    id: 'global-lang-select', 
+    class: 'form-select', 
+    style: 'width: auto; padding: var(--space-2); font-size: var(--text-xs); background: var(--color-bg-tertiary);',
+    aria: { label: 'Select interface language' }
+  }, options);
+}
+
+/**
+ * Renders the application sidebar.
+ * @param {string} role - Current user role
+ * @returns {HTMLElement} Sidebar element
+ */
+function renderSidebar(role) {
+  const currentRoute = window.location.hash || (role === 'fan' ? '#/fan' : '#/org');
+  
   const fanItems = [
     { path: '#/fan', icon: '🏠', label: t('nav.fanHome') },
     { path: '#/fan/assistant', icon: '🤖', label: t('nav.assistant') },
@@ -116,17 +170,31 @@ function renderSidebarItems(role) {
   ];
 
   const items = role === 'fan' ? fanItems : orgItems;
+  
+  const navItems = items.map(item => 
+    createElement('li', { role: 'listitem' }, [
+      createElement('a', { 
+        href: item.path, 
+        class: `sidebar-nav__item ${currentRoute === item.path ? 'sidebar-nav__item--active' : ''}`,
+        aria: { current: currentRoute === item.path ? 'page' : 'false' },
+        dataset: { route: item.path }
+      }, [
+        createElement('span', { class: 'sidebar-nav__icon', aria: { hidden: 'true' } }, [item.icon]),
+        createElement('span', {}, [item.label])
+      ])
+    ])
+  );
 
-  return items.map((item) => `
-    <li role="listitem">
-      <a href="${item.path}" class="sidebar-nav__item ${currentRoute === item.path ? 'sidebar-nav__item--active' : ''}"
-        aria-current="${currentRoute === item.path ? 'page' : 'false'}"
-        data-route="${item.path}">
-        <span class="sidebar-nav__icon" aria-hidden="true">${item.icon}</span>
-        <span>${escapeHTML(item.label)}</span>
-      </a>
-    </li>
-  `).join('');
+  return createElement('aside', { class: 'app-sidebar', id: 'app-sidebar', role: 'navigation', aria: { label: 'Main navigation' } }, [
+    createElement('div', { style: 'padding: 0 var(--space-4) var(--space-4);' }, [
+      createElement('div', { style: 'font-family: var(--font-display); font-weight: var(--weight-bold); font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4);' }, [
+        role === 'fan' ? '🎉 Fan Experience' : '⚙️ Staff Operations'
+      ])
+    ]),
+    createElement('nav', {}, [
+      createElement('ul', { class: 'sidebar-nav', id: 'sidebar-nav', role: 'list' }, navItems)
+    ])
+  ]);
 }
 
 /**
@@ -164,6 +232,7 @@ function switchRole(newRole) {
 
   store.dispatch('auth.setRole', newRole);
 
+  // Announce state change to screen reader dynamically
   announceToScreenReader(`Switched to ${newRole === 'fan' ? 'Fan Experience' : 'Staff Operations'} mode`);
 
   store.dispatch('ui.addToast', {
@@ -182,14 +251,17 @@ function switchRole(newRole) {
  * Reinitializes the app shell (used after role or language change).
  */
 function reinitializeApp() {
-  router.destroy();
-  const appEl = document.getElementById('app');
-  if (!appEl) return;
-  appEl.innerHTML = renderAppShell();
-  initHeader();
-  initSidebar();
-  initToastManager();
-  router.init();
+  withErrorBoundary(() => {
+    router.destroy();
+    const appEl = document.getElementById('app');
+    if (!appEl) return;
+    
+    replaceChildren(appEl, [renderAppShell()]);
+    initHeader();
+    initSidebar();
+    initToastManager();
+    router.init();
+  });
 }
 
 /**
@@ -245,24 +317,29 @@ function initToastManager() {
       const toastId = `toast-${toast.id}`;
       if (!document.getElementById(toastId)) {
         const typeIcons = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
-        const toastHTML = `
-          <div class="toast toast--${toast.type}" id="${toastId}" role="alert">
-            <span class="toast__icon">${typeIcons[toast.type] || 'ℹ️'}</span>
-            <div class="toast__body">
-              <div class="toast__title">${escapeHTML(toast.title)}</div>
-              <div class="toast__message">${escapeHTML(toast.message)}</div>
-            </div>
-            <button class="btn btn--ghost btn--sm" data-dismiss-toast="${toast.id}" type="button" aria-label="Dismiss notification" style="padding: var(--space-1);">✕</button>
-          </div>
-        `;
-        container.insertAdjacentHTML('beforeend', toastHTML);
+        
+        const dismissBtn = createElement('button', { 
+          class: 'btn btn--ghost btn--sm', 
+          dataset: { dismissToast: toast.id }, 
+          type: 'button', 
+          aria: { label: 'Dismiss notification' }, 
+          style: 'padding: var(--space-1);' 
+        }, ['✕']);
+        
+        dismissBtn.addEventListener('click', () => {
+          store.dispatch('ui.removeToast', toast.id);
+        });
 
-        const dismissBtn = container.querySelector(`[data-dismiss-toast="${toast.id}"]`);
-        if (dismissBtn) {
-          dismissBtn.addEventListener('click', () => {
-            store.dispatch('ui.removeToast', toast.id);
-          });
-        }
+        const toastEl = createElement('div', { class: `toast toast--${toast.type}`, id: toastId, role: 'alert' }, [
+          createElement('span', { class: 'toast__icon' }, [typeIcons[toast.type] || 'ℹ️']),
+          createElement('div', { class: 'toast__body' }, [
+            createElement('div', { class: 'toast__title' }, [toast.title]),
+            createElement('div', { class: 'toast__message' }, [toast.message])
+          ]),
+          dismissBtn
+        ]);
+
+        container.appendChild(toastEl);
 
         setTimeout(() => {
           store.dispatch('ui.removeToast', toast.id);

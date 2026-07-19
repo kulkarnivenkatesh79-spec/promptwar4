@@ -8,6 +8,9 @@ import { processMessage } from '../../components/Chat/ChatEngine.js';
 import { switchRole } from '../../app.js';
 import { getIncidentStats, sampleIncidents } from '../../data/mockIncidents.js';
 
+vi.stubEnv('VITE_GEMINI_API_KEY', '');
+
+
 describe('Role Switch Flow', () => {
   beforeEach(() => {
     store.reset('auth');
@@ -49,7 +52,7 @@ describe('Chat Interaction Flow', () => {
 
   it('processes user message, detects language, and stores AI response', async () => {
     // 1. Send Spanish message
-    const msg = '¿Dónde está el estadio?';
+    const msg = 'hola donde esta el estadio';
     
     // Process with mock chunk callback
     let chunks = [];

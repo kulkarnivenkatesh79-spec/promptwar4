@@ -93,7 +93,14 @@ function sanitizeHTML(input) {
 }
 
 /**
- * Sanitizes user input: trims, removes control characters, enforces max length.
+ * Regex pattern for strictly unsafe character sequences (e.g., cross-site scripting vectors).
+ * @type {RegExp}
+ */
+const UNSAFE_SEQUENCE_REGEX = /(<script.*?>.*?<\/script>|javascript:|vbscript:|data:text\/html|on\w+\s*=)/gi;
+
+/**
+ * Sanitizes user input: applies dual-layer sanitization (regex validation then string cleanup).
+ * Trims, removes control characters, and enforces max length.
  * @param {string} input - Raw user input
  * @param {Object} [options] - Sanitization options
  * @param {number} [options.maxLength=2000] - Maximum allowed length
@@ -107,6 +114,10 @@ function sanitizeInput(input, options = {}) {
 
   let sanitized = input.trim();
 
+  // Layer 1: Strict Regex validation to immediately drop known unsafe sequences
+  sanitized = sanitized.replace(UNSAFE_SEQUENCE_REGEX, '');
+
+  // Layer 2: String sanitization
   sanitized = sanitized.replace(CONTROL_CHARS_REGEX, '');
 
   if (!allowNewlines) {
@@ -114,7 +125,6 @@ function sanitizeInput(input, options = {}) {
   }
 
   sanitized = sanitized.replace(JAVASCRIPT_PROTOCOL_REGEX, '');
-
   sanitized = sanitized.replace(EVENT_HANDLER_REGEX, '');
 
   if (sanitized.length > maxLength) {

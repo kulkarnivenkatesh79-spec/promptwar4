@@ -4,11 +4,12 @@
  * @module components/IncidentReporter/IncidentReporter
  */
 
-import { sanitizeInput, escapeHTML, validatePayload } from '../../core/security.js';
+import { sanitizeInput, validatePayload } from '../../core/security.js';
 import { t } from '../../core/i18n.js';
-import { announceToScreenReader, trapFocusInElement, releaseFocusTrap } from '../../core/accessibility.js';
+import { announceToScreenReader } from '../../core/accessibility.js';
 import store from '../../core/store.js';
 import { sampleIncidents, generateProtocol, getIncidentStats } from '../../data/mockIncidents.js';
+import { createElement, replaceChildren } from '../../core/dom.js';
 
 /**
  * Creates the Incident Reporter component.
@@ -28,104 +29,106 @@ export default function IncidentReporter() {
   function render() {
     const stats = getIncidentStats(incidents);
 
-    return `
-      <div class="flex flex-col gap-6">
-        <!-- Stats Bar -->
-        <div class="dashboard-grid dashboard-grid--4">
-          <article class="glass-card stat-card" role="article" aria-label="Active incidents: ${stats.active}">
-            <span class="stat-card__label">${escapeHTML(t('incidents.activeIncidents'))}</span>
-            <span class="stat-card__value" style="${stats.critical > 0 ? '-webkit-text-fill-color: var(--color-accent-red);' : ''}">${stats.active}</span>
-            ${stats.critical > 0 ? `<span class="badge badge--danger">${stats.critical} ${escapeHTML(t('incidents.severities.critical'))}</span>` : '<span class="badge badge--success">Under control</span>'}
-          </article>
-          <article class="glass-card stat-card" role="article" aria-label="Resolved: ${stats.resolved}">
-            <span class="stat-card__label">${escapeHTML(t('incidents.resolved'))}</span>
-            <span class="stat-card__value">${stats.resolved}</span>
-          </article>
-          <article class="glass-card stat-card" role="article" aria-label="Total today: ${stats.total}">
-            <span class="stat-card__label">${escapeHTML(t('incidents.totalToday'))}</span>
-            <span class="stat-card__value">${stats.total}</span>
-          </article>
-          <article class="glass-card stat-card" role="article" aria-label="Average response time: ${stats.avgResponseTime} minutes">
-            <span class="stat-card__label">${escapeHTML(t('incidents.avgResponse'))}</span>
-            <span class="stat-card__value">${stats.avgResponseTime}<span style="font-size: var(--text-sm); -webkit-text-fill-color: var(--color-text-muted);">min</span></span>
-          </article>
-        </div>
+    const statCards = [
+      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Active incidents: ${stats.active}` } }, [
+        createElement('span', { class: 'stat-card__label' }, [t('incidents.activeIncidents')]),
+        createElement('span', { class: 'stat-card__value', style: stats.critical > 0 ? '-webkit-text-fill-color: var(--color-accent-red);' : '' }, [stats.active]),
+        stats.critical > 0 
+          ? createElement('span', { class: 'badge badge--danger' }, [`${stats.critical} ${t('incidents.severities.critical')}`]) 
+          : createElement('span', { class: 'badge badge--success' }, ['Under control'])
+      ]),
+      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Resolved: ${stats.resolved}` } }, [
+        createElement('span', { class: 'stat-card__label' }, [t('incidents.resolved')]),
+        createElement('span', { class: 'stat-card__value' }, [stats.resolved])
+      ]),
+      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Total today: ${stats.total}` } }, [
+        createElement('span', { class: 'stat-card__label' }, [t('incidents.totalToday')]),
+        createElement('span', { class: 'stat-card__value' }, [stats.total])
+      ]),
+      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Average response time: ${stats.avgResponseTime} minutes` } }, [
+        createElement('span', { class: 'stat-card__label' }, [t('incidents.avgResponse')]),
+        createElement('span', { class: 'stat-card__value' }, [
+          stats.avgResponseTime,
+          createElement('span', { style: 'font-size: var(--text-sm); -webkit-text-fill-color: var(--color-text-muted);' }, ['min'])
+        ])
+      ])
+    ];
 
-        <!-- Report Form -->
-        <section class="glass-card" aria-labelledby="incident-form-heading">
-          <h3 id="incident-form-heading" style="margin-bottom: var(--space-4);">
-            🚨 ${escapeHTML(t('incidents.reportNew'))}
-          </h3>
-          <form id="incident-form" novalidate aria-label="Incident report form">
-            <div class="dashboard-grid dashboard-grid--2" style="margin-bottom: var(--space-4);">
-              <div class="form-group">
-                <label for="incident-category" class="form-label">${escapeHTML(t('incidents.category'))} *</label>
-                <select id="incident-category" class="form-select" required aria-required="true">
-                  <option value="">Select category</option>
-                  <option value="medical">${escapeHTML(t('incidents.categories.medical'))}</option>
-                  <option value="security">${escapeHTML(t('incidents.categories.security'))}</option>
-                  <option value="infrastructure">${escapeHTML(t('incidents.categories.infrastructure'))}</option>
-                  <option value="crowd">${escapeHTML(t('incidents.categories.crowd'))}</option>
-                  <option value="weather">${escapeHTML(t('incidents.categories.weather'))}</option>
-                  <option value="general">${escapeHTML(t('incidents.categories.general'))}</option>
-                </select>
-                <div id="incident-category-error" class="form-error" role="alert" aria-live="polite"></div>
-              </div>
-              <div class="form-group">
-                <label for="incident-severity" class="form-label">${escapeHTML(t('incidents.severity'))} *</label>
-                <select id="incident-severity" class="form-select" required aria-required="true">
-                  <option value="">Select severity</option>
-                  <option value="critical">${escapeHTML(t('incidents.severities.critical'))}</option>
-                  <option value="high">${escapeHTML(t('incidents.severities.high'))}</option>
-                  <option value="medium">${escapeHTML(t('incidents.severities.medium'))}</option>
-                  <option value="low">${escapeHTML(t('incidents.severities.low'))}</option>
-                </select>
-                <div id="incident-severity-error" class="form-error" role="alert" aria-live="polite"></div>
-              </div>
-            </div>
-            <div class="form-group" style="margin-bottom: var(--space-4);">
-              <label for="incident-location" class="form-label">${escapeHTML(t('incidents.location'))} *</label>
-              <input type="text" id="incident-location" class="form-input" placeholder="e.g., Section 202, Restroom Block C" required aria-required="true" maxlength="200" />
-              <div id="incident-location-error" class="form-error" role="alert" aria-live="polite"></div>
-            </div>
-            <div class="form-group" style="margin-bottom: var(--space-4);">
-              <label for="incident-description" class="form-label">${escapeHTML(t('incidents.description'))} *</label>
-              <textarea id="incident-description" class="form-textarea" placeholder="Describe the incident in detail..." required aria-required="true" maxlength="2000"></textarea>
-              <div id="incident-description-error" class="form-error" role="alert" aria-live="polite"></div>
-            </div>
-            <button type="submit" class="btn btn--primary btn--lg" id="incident-submit-btn">
-              🚨 ${escapeHTML(t('incidents.submit'))}
-            </button>
-          </form>
-        </section>
+    const form = createElement('form', { id: 'incident-form', novalidate: true, aria: { label: 'Incident report form' } }, [
+      createElement('div', { class: 'dashboard-grid dashboard-grid--2', style: 'margin-bottom: var(--space-4);' }, [
+        createElement('div', { class: 'form-group' }, [
+          createElement('label', { for: 'incident-category', class: 'form-label' }, [`${t('incidents.category')} *`]),
+          createElement('select', { id: 'incident-category', class: 'form-select', required: true, aria: { required: 'true' } }, [
+            createElement('option', { value: '' }, ['Select category']),
+            createElement('option', { value: 'medical' }, [t('incidents.categories.medical')]),
+            createElement('option', { value: 'security' }, [t('incidents.categories.security')]),
+            createElement('option', { value: 'infrastructure' }, [t('incidents.categories.infrastructure')]),
+            createElement('option', { value: 'crowd' }, [t('incidents.categories.crowd')]),
+            createElement('option', { value: 'weather' }, [t('incidents.categories.weather')]),
+            createElement('option', { value: 'general' }, [t('incidents.categories.general')])
+          ]),
+          createElement('div', { id: 'incident-category-error', class: 'form-error', role: 'alert', aria: { live: 'polite' } })
+        ]),
+        createElement('div', { class: 'form-group' }, [
+          createElement('label', { for: 'incident-severity', class: 'form-label' }, [`${t('incidents.severity')} *`]),
+          createElement('select', { id: 'incident-severity', class: 'form-select', required: true, aria: { required: 'true' } }, [
+            createElement('option', { value: '' }, ['Select severity']),
+            createElement('option', { value: 'critical' }, [t('incidents.severities.critical')]),
+            createElement('option', { value: 'high' }, [t('incidents.severities.high')]),
+            createElement('option', { value: 'medium' }, [t('incidents.severities.medium')]),
+            createElement('option', { value: 'low' }, [t('incidents.severities.low')])
+          ]),
+          createElement('div', { id: 'incident-severity-error', class: 'form-error', role: 'alert', aria: { live: 'polite' } })
+        ])
+      ]),
+      createElement('div', { class: 'form-group', style: 'margin-bottom: var(--space-4);' }, [
+        createElement('label', { for: 'incident-location', class: 'form-label' }, [`${t('incidents.location')} *`]),
+        createElement('input', { type: 'text', id: 'incident-location', class: 'form-input', placeholder: 'e.g., Section 202, Restroom Block C', required: true, aria: { required: 'true' }, maxlength: '200' }),
+        createElement('div', { id: 'incident-location-error', class: 'form-error', role: 'alert', aria: { live: 'polite' } })
+      ]),
+      createElement('div', { class: 'form-group', style: 'margin-bottom: var(--space-4);' }, [
+        createElement('label', { for: 'incident-description', class: 'form-label' }, [`${t('incidents.description')} *`]),
+        createElement('textarea', { id: 'incident-description', class: 'form-textarea', placeholder: 'Describe the incident in detail...', required: true, aria: { required: 'true' }, maxlength: '2000' }),
+        createElement('div', { id: 'incident-description-error', class: 'form-error', role: 'alert', aria: { live: 'polite' } })
+      ]),
+      createElement('button', { type: 'submit', class: 'btn btn--primary btn--lg', id: 'incident-submit-btn' }, [`🚨 ${t('incidents.submit')}`])
+    ]);
 
-        <!-- Active Incident Log -->
-        <section aria-labelledby="incident-log-heading">
-          <div class="flex justify-between items-center mb-4">
-            <h3 id="incident-log-heading">📋 ${escapeHTML(t('incidents.activeIncidents'))}</h3>
-            <div class="flex gap-2">
-              <select id="incident-filter-severity" class="form-select" style="width: auto; font-size: var(--text-xs);" aria-label="Filter by severity">
-                <option value="all">All Severities</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-              <select id="incident-filter-status" class="form-select" style="width: auto; font-size: var(--text-xs);" aria-label="Filter by status">
-                <option value="all">All Statuses</option>
-                <option value="reported">Reported</option>
-                <option value="acknowledged">Acknowledged</option>
-                <option value="inProgress">In Progress</option>
-                <option value="resolved">Resolved</option>
-              </select>
-            </div>
-          </div>
-          <div class="flex flex-col gap-3" id="incident-log" role="list" aria-label="Incident log">
-            ${incidents.map((inc) => renderIncidentCard(inc)).join('')}
-          </div>
-        </section>
-      </div>
-    `;
+    const reportSection = createElement('section', { class: 'glass-card', aria: { labelledby: 'incident-form-heading' } }, [
+      createElement('h3', { id: 'incident-form-heading', style: 'margin-bottom: var(--space-4);' }, [`🚨 ${t('incidents.reportNew')}`]),
+      form
+    ]);
+
+    const logSection = createElement('section', { aria: { labelledby: 'incident-log-heading' } }, [
+      createElement('div', { class: 'flex justify-between items-center mb-4' }, [
+        createElement('h3', { id: 'incident-log-heading' }, [`📋 ${t('incidents.activeIncidents')}`]),
+        createElement('div', { class: 'flex gap-2' }, [
+          createElement('select', { id: 'incident-filter-severity', class: 'form-select', style: 'width: auto; font-size: var(--text-xs);', aria: { label: 'Filter by severity' } }, [
+            createElement('option', { value: 'all' }, ['All Severities']),
+            createElement('option', { value: 'critical' }, ['Critical']),
+            createElement('option', { value: 'high' }, ['High']),
+            createElement('option', { value: 'medium' }, ['Medium']),
+            createElement('option', { value: 'low' }, ['Low'])
+          ]),
+          createElement('select', { id: 'incident-filter-status', class: 'form-select', style: 'width: auto; font-size: var(--text-xs);', aria: { label: 'Filter by status' } }, [
+            createElement('option', { value: 'all' }, ['All Statuses']),
+            createElement('option', { value: 'reported' }, ['Reported']),
+            createElement('option', { value: 'acknowledged' }, ['Acknowledged']),
+            createElement('option', { value: 'inProgress' }, ['In Progress']),
+            createElement('option', { value: 'resolved' }, ['Resolved'])
+          ])
+        ])
+      ]),
+      createElement('div', { class: 'flex flex-col gap-3', id: 'incident-log', role: 'list', aria: { label: 'Incident log' } }, 
+        incidents.map((inc) => renderIncidentCard(inc))
+      )
+    ]);
+
+    return createElement('div', { class: 'flex flex-col gap-6' }, [
+      createElement('div', { class: 'dashboard-grid dashboard-grid--4' }, statCards),
+      reportSection,
+      logSection
+    ]);
   }
 
   function renderIncidentCard(incident) {
@@ -134,58 +137,63 @@ export default function IncidentReporter() {
     const statusBadge = { reported: 'badge--info', acknowledged: 'badge--warning', inProgress: 'badge--gold', resolved: 'badge--success' };
     const categoryIcons = { medical: '🏥', security: '🛡️', infrastructure: '🔧', crowd: '👥', weather: '⛈️', general: '📝' };
 
-    return `
-      <article class="incident-card" role="listitem" data-incident-id="${escapeHTML(incident.id)}"
-        aria-label="${escapeHTML(incident.category)} incident at ${escapeHTML(incident.location)}, severity ${incident.severity}, status ${incident.status}">
-        <div class="incident-card__severity incident-card__severity--${incident.severity}" aria-hidden="true"></div>
-        <div style="flex: 1;">
-          <div class="flex justify-between items-center mb-2">
-            <div class="flex items-center gap-2">
-              <span>${categoryIcons[incident.category] || '📝'}</span>
-              <span style="font-weight: var(--weight-semibold);">${escapeHTML(t(`incidents.categories.${incident.category}`))}</span>
-            </div>
-            <div class="flex gap-2">
-              <span class="badge ${severityBadge[incident.severity]}">${escapeHTML(t(`incidents.severities.${incident.severity}`))}</span>
-              <span class="badge ${statusBadge[incident.status]}">${escapeHTML(t(`incidents.statuses.${incident.status}`))}</span>
-            </div>
-          </div>
-          <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: var(--space-2);">
-            📍 ${escapeHTML(incident.location)} · ⏱️ ${escapeHTML(timeAgo)}
-          </div>
-          <p style="font-size: var(--text-sm); margin-bottom: var(--space-3);">${escapeHTML(incident.description)}</p>
+    const actionButtons = [];
+    if (incident.status !== 'resolved') {
+      if (incident.status === 'reported') {
+        actionButtons.push(createElement('button', { class: 'btn btn--secondary btn--sm', dataset: { action: 'acknowledge', id: incident.id }, type: 'button' }, ['✓ Acknowledge']));
+      } else if (incident.status === 'acknowledged') {
+        actionButtons.push(createElement('button', { class: 'btn btn--primary btn--sm', dataset: { action: 'inProgress', id: incident.id }, type: 'button' }, ['▶ Start Response']));
+      } else if (incident.status === 'inProgress') {
+        actionButtons.push(createElement('button', { class: 'btn btn--sm', style: 'background: var(--color-accent-green); color: var(--color-text-inverse);', dataset: { action: 'resolved', id: incident.id }, type: 'button' }, ['✓ Resolve']));
+      }
+    }
 
-          ${incident.protocol ? renderProtocol(incident.protocol) : ''}
+    const actionContainer = actionButtons.length > 0 
+      ? createElement('div', { class: 'flex gap-2 mt-2' }, actionButtons) 
+      : null;
 
-          ${incident.status !== 'resolved' ? `
-            <div class="flex gap-2 mt-2">
-              ${incident.status === 'reported' ? `<button class="btn btn--secondary btn--sm" data-action="acknowledge" data-id="${escapeHTML(incident.id)}" type="button">✓ Acknowledge</button>` : ''}
-              ${incident.status === 'acknowledged' ? `<button class="btn btn--primary btn--sm" data-action="inProgress" data-id="${escapeHTML(incident.id)}" type="button">▶ Start Response</button>` : ''}
-              ${incident.status === 'inProgress' ? `<button class="btn btn--sm" style="background: var(--color-accent-green); color: var(--color-text-inverse);" data-action="resolved" data-id="${escapeHTML(incident.id)}" type="button">✓ Resolve</button>` : ''}
-            </div>
-          ` : ''}
-        </div>
-      </article>
-    `;
+    return createElement('article', { 
+      class: 'incident-card', 
+      role: 'listitem', 
+      dataset: { incidentId: incident.id },
+      aria: { label: `${incident.category} incident at ${incident.location}, severity ${incident.severity}, status ${incident.status}` }
+    }, [
+      createElement('div', { class: `incident-card__severity incident-card__severity--${incident.severity}`, aria: { hidden: 'true' } }),
+      createElement('div', { style: 'flex: 1;' }, [
+        createElement('div', { class: 'flex justify-between items-center mb-2' }, [
+          createElement('div', { class: 'flex items-center gap-2' }, [
+            createElement('span', {}, [categoryIcons[incident.category] || '📝']),
+            createElement('span', { style: 'font-weight: var(--weight-semibold);' }, [t(`incidents.categories.${incident.category}`)])
+          ]),
+          createElement('div', { class: 'flex gap-2' }, [
+            createElement('span', { class: `badge ${severityBadge[incident.severity]}` }, [t(`incidents.severities.${incident.severity}`)]),
+            createElement('span', { class: `badge ${statusBadge[incident.status]}` }, [t(`incidents.statuses.${incident.status}`)])
+          ])
+        ]),
+        createElement('div', { style: 'font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: var(--space-2);' }, [`📍 ${incident.location} · ⏱️ ${timeAgo}`]),
+        createElement('p', { style: 'font-size: var(--text-sm); margin-bottom: var(--space-3);' }, [incident.description]),
+        incident.protocol ? renderProtocol(incident.protocol) : null,
+        actionContainer
+      ])
+    ]);
   }
 
   function renderProtocol(protocol) {
-    return `
-      <div class="glass-card" style="padding: var(--space-3); margin-top: var(--space-2); background: rgba(0, 229, 255, 0.05); border-color: rgba(0, 229, 255, 0.15);">
-        <div class="flex justify-between items-center mb-2">
-          <span style="font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-accent-cyan);">
-            🤖 ${escapeHTML(t('incidents.protocolTitle'))}
-          </span>
-          <span class="badge badge--info">${protocol.priority}</span>
-        </div>
-        <ol style="font-size: var(--text-xs); color: var(--color-text-secondary); padding-left: var(--space-4); margin-bottom: var(--space-2);">
-          ${protocol.steps.map((step) => `<li style="margin-bottom: var(--space-1);">${escapeHTML(step)}</li>`).join('')}
-        </ol>
-        <div class="flex gap-4" style="font-size: var(--text-xs); color: var(--color-text-muted);">
-          <span>⏱️ ${escapeHTML(t('incidents.estimatedResponse'))}: ${escapeHTML(protocol.estimatedResponse)}</span>
-          <span>👤 ${escapeHTML(t('incidents.personnelNeeded'))}: ${protocol.personnelNeeded}</span>
-        </div>
-      </div>
-    `;
+    const steps = protocol.steps.map(step => 
+      createElement('li', { style: 'margin-bottom: var(--space-1);' }, [step])
+    );
+
+    return createElement('div', { class: 'glass-card', style: 'padding: var(--space-3); margin-top: var(--space-2); background: rgba(0, 229, 255, 0.05); border-color: rgba(0, 229, 255, 0.15);' }, [
+      createElement('div', { class: 'flex justify-between items-center mb-2' }, [
+        createElement('span', { style: 'font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-accent-cyan);' }, [`🤖 ${t('incidents.protocolTitle')}`]),
+        createElement('span', { class: 'badge badge--info' }, [protocol.priority])
+      ]),
+      createElement('ol', { style: 'font-size: var(--text-xs); color: var(--color-text-secondary); padding-left: var(--space-4); margin-bottom: var(--space-2);' }, steps),
+      createElement('div', { class: 'flex gap-4', style: 'font-size: var(--text-xs); color: var(--color-text-muted);' }, [
+        createElement('span', {}, [`⏱️ ${t('incidents.estimatedResponse')}: ${protocol.estimatedResponse}`]),
+        createElement('span', {}, [`👤 ${t('incidents.personnelNeeded')}: ${protocol.personnelNeeded}`])
+      ])
+    ]);
   }
 
   function getTimeAgo(timestamp) {
@@ -287,7 +295,12 @@ export default function IncidentReporter() {
 
     const logEl = document.getElementById('incident-log');
     if (logEl) {
-      logEl.insertAdjacentHTML('afterbegin', renderIncidentCard(newIncident));
+      const newCard = renderIncidentCard(newIncident);
+      if (logEl.firstChild) {
+        logEl.insertBefore(newCard, logEl.firstChild);
+      } else {
+        logEl.appendChild(newCard);
+      }
     }
 
     const form = document.getElementById('incident-form');
@@ -315,7 +328,7 @@ export default function IncidentReporter() {
 
     const logEl = document.getElementById('incident-log');
     if (logEl) {
-      logEl.innerHTML = incidents.map((inc) => renderIncidentCard(inc)).join('');
+      replaceChildren(logEl, incidents.map((inc) => renderIncidentCard(inc)));
     }
 
     store.dispatch('ui.addToast', {
@@ -339,9 +352,13 @@ export default function IncidentReporter() {
 
     const logEl = document.getElementById('incident-log');
     if (logEl) {
-      logEl.innerHTML = filtered.length > 0
-        ? filtered.map((inc) => renderIncidentCard(inc)).join('')
-        : '<div class="text-center" style="padding: var(--space-8); color: var(--color-text-muted);">No incidents match the selected filters</div>';
+      if (filtered.length > 0) {
+        replaceChildren(logEl, filtered.map((inc) => renderIncidentCard(inc)));
+      } else {
+        replaceChildren(logEl, [
+          createElement('div', { class: 'text-center', style: 'padding: var(--space-8); color: var(--color-text-muted);' }, ['No incidents match the selected filters'])
+        ]);
+      }
     }
 
     announceToScreenReader(`Showing ${filtered.length} incidents`);

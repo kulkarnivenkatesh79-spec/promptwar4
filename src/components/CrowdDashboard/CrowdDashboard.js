@@ -1,15 +1,13 @@
 /**
- * @fileoverview Operational Intelligence dashboard with real-time crowd management,
- * gate capacities, choke-point detection, and AI redistribution suggestions.
+ * @fileoverview Organizer Dashboard for real-time crowd density monitoring,
+ * AI suggestions, and choke point alerts. Includes Canvas heatmap.
  * @module components/CrowdDashboard/CrowdDashboard
  */
 
-import { escapeHTML } from '../../core/security.js';
 import { t } from '../../core/i18n.js';
 import { announceToScreenReader } from '../../core/accessibility.js';
 import store from '../../core/store.js';
-import { generateCrowdData, generateVenueSummaries } from '../../data/mockCrowdData.js';
-import { venues } from '../../data/venues.js';
+import { createElement, replaceChildren } from '../../core/dom.js';
 
 /**
  * Creates the Crowd Dashboard component.
@@ -17,227 +15,234 @@ import { venues } from '../../data/venues.js';
  */
 export default function CrowdDashboard() {
   const cleanupFns = [];
-  let refreshInterval = null;
-  let crowdData = generateCrowdData('metlife');
+  let updateInterval = null;
+  let canvasContext = null;
+  let canvasElement = null;
 
   function render() {
-    const venueSummaries = generateVenueSummaries();
+    const data = store.getState('crowd').currentData;
 
-    return `
-      <div class="flex flex-col gap-6">
-        <!-- Venue Selector -->
-        <div class="flex items-center justify-between">
-          <div class="form-group" style="min-width: 250px;">
-            <label for="venue-select" class="form-label">${escapeHTML(t('common.selectVenue'))}</label>
-            <select id="venue-select" class="form-select" aria-label="Select venue for crowd monitoring">
-              ${venues.map((v) => `<option value="${v.id}" ${v.id === 'metlife' ? 'selected' : ''}>${escapeHTML(v.name)} — ${escapeHTML(v.city)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="flex items-center gap-3">
-            <span id="crowd-last-updated" style="font-size: var(--text-xs); color: var(--color-text-muted);">Updated just now</span>
-            <button class="btn btn--secondary btn--sm" id="crowd-refresh-btn" type="button" aria-label="${escapeHTML(t('crowd.refreshData'))}">
-              🔄 ${escapeHTML(t('crowd.refreshData'))}
-            </button>
-          </div>
-        </div>
+    if (!data) {
+      return createElement('div', { class: 'text-center', style: 'padding: var(--space-8); color: var(--color-text-muted);' }, ['Loading crowd data...']);
+    }
 
-        <!-- Key Metrics -->
-        <div class="dashboard-grid dashboard-grid--4" id="crowd-metrics">
-          ${renderMetrics(crowdData)}
-        </div>
+    const statCards = [
+      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Total occupancy: ${data.currentOccupancy.toLocaleString()}` } }, [
+        createElement('span', { class: 'stat-card__label' }, [t('crowd.occupancy')]),
+        createElement('span', { class: 'stat-card__value', id: 'crowd-total-display' }, [data.currentOccupancy.toLocaleString()]),
+        createElement('span', { class: 'stat-card__delta stat-card__delta--up' }, [`${data.occupancyPercentage}% capacity`])
+      ]),
+      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Active choke points: ${data.chokePoints.length}` } }, [
+        createElement('span', { class: 'stat-card__label' }, ['Choke Points']),
+        createElement('span', { class: 'stat-card__value', id: 'crowd-chokes-display', style: data.chokePoints.length > 0 ? '-webkit-text-fill-color: var(--color-accent-red);' : '' }, [data.chokePoints.length]),
+        createElement('span', { class: 'stat-card__delta' }, ['Active alerts'])
+      ])
+    ];
 
-        <!-- Gate Status Grid -->
-        <section aria-labelledby="gate-status-heading">
-          <h3 id="gate-status-heading" style="margin-bottom: var(--space-4);">
-            🚪 ${escapeHTML(t('crowd.gateStatus'))}
-          </h3>
-          <div class="dashboard-grid dashboard-grid--3" id="gate-status-grid">
-            ${Object.entries(crowdData.gates).map(([key, gate]) => renderGateCard(key, gate)).join('')}
-          </div>
-        </section>
+    const gateList = Object.values(data.gates).map((gate) => renderGateCard(gate));
 
-        <!-- AI Suggestions -->
-        <section aria-labelledby="ai-suggestions-heading">
-          <h3 id="ai-suggestions-heading" style="margin-bottom: var(--space-4);">
-            🤖 ${escapeHTML(t('crowd.redistribution'))} — ${escapeHTML(t('crowd.suggestion'))}
-          </h3>
-          <div class="flex flex-col gap-3" id="ai-suggestions">
-            ${crowdData.aiSuggestions.map((s) => renderSuggestion(s)).join('')}
-          </div>
-        </section>
+    const heatmapSection = createElement('section', { class: 'glass-card', aria: { labelledby: 'crowd-heatmap-heading' } }, [
+      createElement('h3', { id: 'crowd-heatmap-heading', style: 'margin-bottom: var(--space-4);' }, ['🌡️ Heatmap & Zones']),
+      createElement('div', { style: 'position: relative; width: 100%; aspect-ratio: 16/9; background: var(--color-bg-tertiary); border-radius: var(--radius-md); overflow: hidden;' }, [
+        createElement('canvas', { id: 'crowd-heatmap-canvas', style: 'width: 100%; height: 100%; display: block;' })
+      ])
+    ]);
 
-        <!-- All Venues Overview -->
-        <section aria-labelledby="venues-overview-heading">
-          <h3 id="venues-overview-heading" style="margin-bottom: var(--space-4);">
-            🏟️ All Venues Overview
-          </h3>
-          <div class="dashboard-grid dashboard-grid--auto" id="venues-overview">
-            ${venueSummaries.map((v) => renderVenueSummaryCard(v)).join('')}
-          </div>
-        </section>
-      </div>
-    `;
+    const rightPanel = createElement('div', { class: 'flex flex-col gap-6' }, [
+      createElement('section', { aria: { labelledby: 'crowd-gates-heading' } }, [
+        createElement('h3', { id: 'crowd-gates-heading', style: 'margin-bottom: var(--space-4);' }, [`🚪 ${t('crowd.gates')}`]),
+        createElement('div', { class: 'flex flex-col gap-3', id: 'crowd-gates-list' }, gateList)
+      ]),
+      createElement('section', { aria: { labelledby: 'crowd-ai-heading' } }, [
+        createElement('h3', { id: 'crowd-ai-heading', style: 'margin-bottom: var(--space-4);' }, [`🤖 ${t('crowd.aiSuggestions')}`]),
+        createElement('div', { class: 'flex flex-col gap-3', id: 'crowd-ai-list' }, data.aiSuggestions.map((s) => renderAISuggestion(s)))
+      ])
+    ]);
+
+    return createElement('div', { class: 'flex flex-col gap-6' }, [
+      createElement('div', { class: 'flex justify-between items-center' }, [
+        createElement('h2', { style: 'font-size: var(--text-2xl);' }, [data.venueName]),
+        createElement('div', { class: 'flex items-center gap-2' }, [
+          createElement('span', { class: 'pulse-dot pulse-dot--active', aria: { hidden: 'true' } }),
+          createElement('span', { style: 'font-size: var(--text-xs); color: var(--color-text-muted);' }, ['Live Updates'])
+        ])
+      ]),
+      createElement('div', { class: 'dashboard-grid dashboard-grid--2' }, statCards),
+      createElement('div', { class: 'dashboard-grid dashboard-grid--sidebar' }, [
+        heatmapSection,
+        rightPanel
+      ])
+    ]);
   }
 
-  function renderMetrics(data) {
-    const occupancyPct = data.occupancyPercentage;
-    const statusBadge = occupancyPct >= 95 ? 'badge--danger' : occupancyPct >= 80 ? 'badge--warning' : 'badge--success';
-    const statusText = occupancyPct >= 95 ? t('crowd.critical') : occupancyPct >= 80 ? t('crowd.warning') : t('crowd.normal');
-    const chokeCount = data.chokePoints.length;
-    const avgWait = Object.values(data.gates).reduce((sum, g) => sum + g.waitTime, 0) / Object.values(data.gates).length;
+  function renderGateCard(gate) {
+    const statusClassMap = { normal: 'capacity-bar__fill--ok', warning: 'capacity-bar__fill--warning', critical: 'capacity-bar__fill--critical' };
+    const barClass = statusClassMap[gate.status] || 'capacity-bar__fill--ok';
 
-    return `
-      <article class="glass-card stat-card" role="article" aria-label="Total capacity: ${data.totalCapacity.toLocaleString()}">
-        <span class="stat-card__label">${escapeHTML(t('crowd.totalCapacity'))}</span>
-        <span class="stat-card__value">${(data.totalCapacity / 1000).toFixed(0)}K</span>
-      </article>
-      <article class="glass-card stat-card" role="article" aria-label="Current occupancy: ${data.currentOccupancy.toLocaleString()}, ${occupancyPct}%">
-        <span class="stat-card__label">${escapeHTML(t('crowd.currentOccupancy'))}</span>
-        <span class="stat-card__value">${(data.currentOccupancy / 1000).toFixed(1)}K</span>
-        <span class="badge ${statusBadge}" style="width: fit-content;">${occupancyPct}% — ${escapeHTML(statusText)}</span>
-      </article>
-      <article class="glass-card stat-card" role="article" aria-label="Choke points detected: ${chokeCount}">
-        <span class="stat-card__label">${escapeHTML(t('crowd.chokePoints'))}</span>
-        <span class="stat-card__value" style="${chokeCount > 0 ? '-webkit-text-fill-color: var(--color-accent-red);' : ''}">${chokeCount}</span>
-        <span class="stat-card__delta ${chokeCount > 0 ? 'stat-card__delta--down' : 'stat-card__delta--up'}">${chokeCount > 0 ? '⚠ Attention needed' : '✓ All clear'}</span>
-      </article>
-      <article class="glass-card stat-card" role="article" aria-label="Average gate wait time: ${Math.round(avgWait)} minutes">
-        <span class="stat-card__label">Avg Wait Time</span>
-        <span class="stat-card__value">${Math.round(avgWait)}<span style="font-size: var(--text-sm); -webkit-text-fill-color: var(--color-text-muted);">min</span></span>
-      </article>
-    `;
+    return createElement('article', { class: 'glass-card', role: 'article', aria: { label: `${gate.name}, ${gate.percentage}% capacity, ${gate.waitTime} minute wait` } }, [
+      createElement('div', { class: 'flex justify-between items-center mb-2' }, [
+        createElement('span', { style: 'font-weight: var(--weight-semibold);' }, [gate.name]),
+        createElement('span', { class: 'badge badge--info' }, [`⏱️ ${gate.waitTime}m`])
+      ]),
+      createElement('div', { class: 'capacity-bar', role: 'progressbar', aria: { valuenow: String(gate.percentage), valuemin: '0', valuemax: '100', label: `${gate.percentage}% capacity` } }, [
+        createElement('div', { class: `capacity-bar__fill ${barClass}`, style: `width: ${gate.percentage}%;` })
+      ]),
+      createElement('div', { class: 'flex justify-between mt-2', style: 'font-size: var(--text-xs); color: var(--color-text-muted);' }, [
+        createElement('span', {}, [`${gate.current.toLocaleString()} / ${gate.capacity.toLocaleString()}`]),
+        createElement('span', {}, [`${gate.percentage}%`])
+      ])
+    ]);
   }
 
-  function renderGateCard(key, gate) {
-    const barClass = gate.percentage >= 95 ? 'capacity-bar__fill--critical' : gate.percentage >= 80 ? 'capacity-bar__fill--warning' : 'capacity-bar__fill--ok';
-    const statusBadge = gate.status === 'critical' ? 'badge--danger' : gate.status === 'warning' ? 'badge--warning' : 'badge--success';
+  function renderAISuggestion(suggestion) {
+    const priorityColor = suggestion.priority === 'critical' ? 'var(--color-accent-red)' : suggestion.priority === 'high' ? 'var(--color-accent-orange)' : 'var(--color-accent-cyan)';
 
-    return `
-      <article class="glass-card" role="article" aria-label="${gate.name}: ${gate.percentage}% capacity, throughput ${gate.throughput} per hour, wait time ${gate.waitTime} minutes">
-        <div class="flex justify-between items-center mb-2">
-          <h4 style="font-size: var(--text-lg);">${escapeHTML(gate.name)}</h4>
-          <span class="badge ${statusBadge}">${escapeHTML(t(`crowd.${gate.status}`))}</span>
-        </div>
-        <div class="capacity-bar mb-2" role="progressbar" aria-valuenow="${gate.percentage}" aria-valuemin="0" aria-valuemax="100" aria-label="${gate.percentage}% capacity">
-          <div class="capacity-bar__fill ${barClass}" style="width: ${gate.percentage}%;"></div>
-        </div>
-        <div style="font-size: var(--text-xs); color: var(--color-text-muted); display: flex; justify-content: space-between;">
-          <span>${gate.current.toLocaleString()} / ${gate.capacity.toLocaleString()}</span>
-          <span>${gate.percentage}%</span>
-        </div>
-        <div class="flex justify-between mt-4" style="font-size: var(--text-xs);">
-          <div>
-            <div style="color: var(--color-text-muted);">${escapeHTML(t('crowd.throughput'))}</div>
-            <div style="font-weight: var(--weight-semibold);">${gate.throughput}/hr</div>
-          </div>
-          <div>
-            <div style="color: var(--color-text-muted);">${escapeHTML(t('crowd.waitTime'))}</div>
-            <div style="font-weight: var(--weight-semibold);">${gate.waitTime} min</div>
-          </div>
-          <div>
-            <div style="color: var(--color-text-muted);">Trend</div>
-            <div style="font-weight: var(--weight-semibold); color: ${gate.trend === 'up' ? 'var(--color-accent-red)' : 'var(--color-accent-green)'};">${gate.trend === 'up' ? '↑ Rising' : '↓ Falling'}</div>
-          </div>
-        </div>
-      </article>
-    `;
+    return createElement('article', { class: 'glass-card', style: `border-left: 4px solid ${priorityColor};`, role: 'article', aria: { label: `AI Suggestion: ${suggestion.title}` } }, [
+      createElement('div', { style: 'font-weight: var(--weight-semibold); font-size: var(--text-sm); margin-bottom: var(--space-1);' }, [suggestion.title]),
+      createElement('p', { style: 'font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: var(--space-3);' }, [suggestion.message]),
+      createElement('div', { class: 'flex justify-between items-center mt-2' }, [
+        createElement('button', { class: 'btn btn--secondary btn--sm', type: 'button' }, [suggestion.action]),
+        createElement('span', { style: 'font-size: 0.65rem; color: var(--color-text-muted);' }, [suggestion.estimatedImpact])
+      ])
+    ]);
   }
 
-  function renderSuggestion(suggestion) {
-    const priorityColors = { critical: 'var(--color-accent-red)', high: 'var(--color-accent-orange)', medium: 'var(--color-accent-gold)', low: 'var(--color-accent-green)' };
-    const priorityBadge = { critical: 'badge--danger', high: 'badge--warning', medium: 'badge--gold', low: 'badge--success' };
+  function drawHeatmap(points) {
+    if (!canvasContext || !canvasElement) return;
+    const canvas = canvasElement;
+    const ctx = canvasContext;
 
-    return `
-      <article class="glass-card" style="border-left: 3px solid ${priorityColors[suggestion.priority]};"
-        role="article" aria-label="AI Suggestion: ${escapeHTML(suggestion.title)}. Priority: ${suggestion.priority}. ${escapeHTML(suggestion.message)}">
-        <div class="flex justify-between items-center mb-2">
-          <h4 style="font-size: var(--text-base);">${escapeHTML(suggestion.title)}</h4>
-          <span class="badge ${priorityBadge[suggestion.priority]}">${suggestion.priority.toUpperCase()}</span>
-        </div>
-        <p style="font-size: var(--text-sm); margin-bottom: var(--space-3);">${escapeHTML(suggestion.message)}</p>
-        <div class="flex justify-between items-center" style="font-size: var(--text-xs);">
-          <span style="color: var(--color-accent-cyan);">💡 Action: ${escapeHTML(suggestion.action)}</span>
-          <span style="color: var(--color-text-muted);">Impact: ${escapeHTML(suggestion.estimatedImpact)}</span>
-        </div>
-      </article>
-    `;
+    // Resize canvas to match display size for sharp rendering
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw field outline for context
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(canvas.width * 0.1, canvas.height * 0.1, canvas.width * 0.8, canvas.height * 0.8, 20);
+    ctx.stroke();
+
+    // Create an offscreen canvas for alpha blending the heatmap
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+
+    points.forEach(p => {
+      const x = p.x * canvas.width;
+      const y = p.y * canvas.height;
+      const radius = p.radius * (canvas.width / 800); // Scale radius by canvas width
+      const intensity = p.intensity;
+
+      const grad = tempCtx.createRadialGradient(x, y, 0, x, y, radius);
+      grad.addColorStop(0, `rgba(0, 0, 0, ${intensity})`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      tempCtx.fillStyle = grad;
+      tempCtx.beginPath();
+      tempCtx.arc(x, y, radius, 0, Math.PI * 2);
+      tempCtx.fill();
+    });
+
+    // Colorize the alpha map
+    const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    // Simple color gradient: Blue -> Green -> Yellow -> Red based on alpha
+    for (let i = 0; i < data.length; i += 4) {
+      const alpha = data[i + 3];
+      if (alpha > 0) {
+        if (alpha < 64) {
+          data[i] = 0; data[i + 1] = 0; data[i + 2] = 255; // Blue
+        } else if (alpha < 128) {
+          data[i] = 0; data[i + 1] = 255; data[i + 2] = 255 - (alpha - 64) * 4; // Cyan-ish
+        } else if (alpha < 192) {
+          data[i] = (alpha - 128) * 4; data[i + 1] = 255; data[i + 2] = 0; // Yellow-ish
+        } else {
+          data[i] = 255; data[i + 1] = 255 - (alpha - 192) * 4; data[i + 2] = 0; // Red-ish
+        }
+        data[i + 3] = alpha; // Keep original alpha for blending
+      }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
   }
 
-  function renderVenueSummaryCard(venue) {
-    const barClass = venue.percentage >= 95 ? 'capacity-bar__fill--critical' : venue.percentage >= 80 ? 'capacity-bar__fill--warning' : 'capacity-bar__fill--ok';
+  function updateDashboard(data) {
+    const totalEl = document.getElementById('crowd-total-display');
+    const chokesEl = document.getElementById('crowd-chokes-display');
+    const gatesListEl = document.getElementById('crowd-gates-list');
+    const aiListEl = document.getElementById('crowd-ai-list');
 
-    return `
-      <article class="glass-card" style="padding: var(--space-4);" role="article"
-        aria-label="${escapeHTML(venue.name)}, ${venue.city}: ${venue.percentage}% occupied">
-        <div class="flex justify-between items-center mb-2">
-          <div>
-            <div style="font-weight: var(--weight-semibold); font-size: var(--text-sm);">${escapeHTML(venue.name)}</div>
-            <div style="font-size: var(--text-xs); color: var(--color-text-muted);">${escapeHTML(venue.city)}, ${escapeHTML(venue.country)}</div>
-          </div>
-          ${venue.hasMatch ? '<span class="badge badge--success">LIVE</span>' : '<span class="badge badge--info">Upcoming</span>'}
-        </div>
-        <div class="capacity-bar" role="progressbar" aria-valuenow="${venue.percentage}" aria-valuemin="0" aria-valuemax="100">
-          <div class="capacity-bar__fill ${barClass}" style="width: ${venue.percentage}%;"></div>
-        </div>
-        <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1); text-align: right;">${venue.percentage}%</div>
-      </article>
-    `;
-  }
+    if (totalEl) totalEl.textContent = data.currentOccupancy.toLocaleString();
+    if (chokesEl) {
+      chokesEl.textContent = data.chokePoints.length;
+      chokesEl.style.webkitTextFillColor = data.chokePoints.length > 0 ? 'var(--color-accent-red)' : '';
+    }
 
-  function refreshData(venueId) {
-    crowdData = generateCrowdData(venueId || 'metlife');
+    if (gatesListEl) {
+      replaceChildren(gatesListEl, Object.values(data.gates).map((gate) => renderGateCard(gate)));
+    }
 
-    const metricsEl = document.getElementById('crowd-metrics');
-    if (metricsEl) metricsEl.innerHTML = renderMetrics(crowdData);
+    if (aiListEl) {
+      replaceChildren(aiListEl, data.aiSuggestions.map((s) => renderAISuggestion(s)));
+    }
 
-    const gateGrid = document.getElementById('gate-status-grid');
-    if (gateGrid) gateGrid.innerHTML = Object.entries(crowdData.gates).map(([key, gate]) => renderGateCard(key, gate)).join('');
-
-    const suggestionsEl = document.getElementById('ai-suggestions');
-    if (suggestionsEl) suggestionsEl.innerHTML = crowdData.aiSuggestions.map((s) => renderSuggestion(s)).join('');
-
-    const updatedEl = document.getElementById('crowd-last-updated');
-    if (updatedEl) updatedEl.textContent = `Updated ${new Date().toLocaleTimeString()}`;
-
-    announceToScreenReader(`Crowd data refreshed. Stadium at ${crowdData.occupancyPercentage}% capacity. ${crowdData.chokePoints.length} choke points.`);
+    if (data.heatmapPoints && canvasContext) {
+      drawHeatmap(data.heatmapPoints);
+    }
   }
 
   function mount() {
-    const refreshBtn = document.getElementById('crowd-refresh-btn');
-    if (refreshBtn) {
-      const handleRefresh = () => {
-        const select = document.getElementById('venue-select');
-        refreshData(select?.value || 'metlife');
+    canvasElement = document.getElementById('crowd-heatmap-canvas');
+    if (canvasElement) {
+      canvasContext = canvasElement.getContext('2d', { willReadFrequently: true });
+      const initialData = store.getState('crowd').currentData;
+      if (initialData && initialData.heatmapPoints) {
+        drawHeatmap(initialData.heatmapPoints);
+      }
+      
+      // Handle resize
+      const handleResize = () => {
+        const currentData = store.getState('crowd').currentData;
+        if (currentData && currentData.heatmapPoints) {
+          drawHeatmap(currentData.heatmapPoints);
+        }
       };
-      refreshBtn.addEventListener('click', handleRefresh);
-      cleanupFns.push(() => refreshBtn.removeEventListener('click', handleRefresh));
+      window.addEventListener('resize', handleResize);
+      cleanupFns.push(() => window.removeEventListener('resize', handleResize));
     }
 
-    const venueSelect = document.getElementById('venue-select');
-    if (venueSelect) {
-      const handleVenueChange = (e) => {
-        refreshData(e.target.value);
-      };
-      venueSelect.addEventListener('change', handleVenueChange);
-      cleanupFns.push(() => venueSelect.removeEventListener('change', handleVenueChange));
-    }
-
-    refreshInterval = setInterval(() => {
-      const select = document.getElementById('venue-select');
-      refreshData(select?.value || 'metlife');
-    }, 10000);
-
-    cleanupFns.push(() => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-        refreshInterval = null;
+    // Subscribe to Redux store updates for crowd data
+    const unsubscribe = store.subscribe('crowd', (crowdState) => {
+      if (crowdState.currentData) {
+        updateDashboard(crowdState.currentData);
       }
     });
+    cleanupFns.push(unsubscribe);
+
+    // Initial load
+    store.dispatch('crowd.fetchData', 'metlife');
+
+    // Poll for real-time updates
+    updateInterval = setInterval(() => {
+      store.dispatch('crowd.fetchData', 'metlife');
+    }, 5000);
+
+    cleanupFns.push(() => clearInterval(updateInterval));
+
+    announceToScreenReader('Crowd Dashboard loaded. Live updates active.');
   }
 
   function unmount() {
     cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
     cleanupFns.length = 0;
+    canvasContext = null;
+    canvasElement = null;
   }
 
   return { render, mount, unmount };

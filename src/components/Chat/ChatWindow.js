@@ -4,11 +4,12 @@
  * @module components/Chat/ChatWindow
  */
 
-import { sanitizeInput, escapeHTML } from '../../core/security.js';
+import { sanitizeInput } from '../../core/security.js';
 import { t, getSupportedLocales, getLocaleName, getLocale } from '../../core/i18n.js';
 import { announceToScreenReader } from '../../core/accessibility.js';
 import { processMessage } from './ChatEngine.js';
 import store from '../../core/store.js';
+import { createElement, replaceChildren } from '../../core/dom.js';
 
 /**
  * Creates the Chat Window component.
@@ -24,67 +25,54 @@ export default function ChatWindow() {
 
   /**
    * Renders the chat window HTML.
-   * @returns {string} HTML string
+   * @returns {HTMLElement} HTML element
    */
   function render() {
     const welcomeMessage = t('chat.welcome');
     const locales = getSupportedLocales();
+    const currentLocale = getLocale();
 
-    return `
-      <section class="chat-container glass-card glass-card--no-hover" aria-label="${escapeHTML(t('chat.title'))}">
-        <header class="flex items-center justify-between" style="padding: var(--space-4); border-bottom: 1px solid var(--glass-border);">
-          <div>
-            <h2 style="font-size: var(--text-xl); margin-bottom: var(--space-1);">🤖 ${escapeHTML(t('chat.title'))}</h2>
-            <p style="font-size: var(--text-xs); color: var(--color-text-muted);">${escapeHTML(t('chat.subtitle'))}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <select id="chat-lang-select" class="form-select" style="width: auto; padding: var(--space-2) var(--space-8) var(--space-2) var(--space-3); font-size: var(--text-xs);"
-              aria-label="Select chat language">
-              ${locales.map((l) => `<option value="${l}" ${l === getLocale() ? 'selected' : ''}>${getLocaleName(l)}</option>`).join('')}
-            </select>
-            <button class="btn btn--ghost btn--sm" id="chat-clear-btn" type="button" aria-label="${escapeHTML(t('chat.clearChat'))}">
-              🗑️
-            </button>
-          </div>
-        </header>
+    const langOptions = locales.map((l) => 
+      createElement('option', { value: l, selected: l === currentLocale }, [getLocaleName(l)])
+    );
 
-        <div class="chat-messages" id="chat-messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions">
-          <div class="chat-message chat-message--ai" role="article" aria-label="AI message">
-            <div class="chat-message__avatar" aria-hidden="true">AI</div>
-            <div>
-              <div class="chat-message__bubble">${escapeHTML(welcomeMessage)}</div>
-              <div class="chat-message__time" aria-label="Sent just now">Just now</div>
-            </div>
-          </div>
-        </div>
-
-        <div id="chat-typing-indicator" class="chat-typing" style="padding: 0 var(--space-4); display: none;" aria-live="polite" role="status">
-          <div class="chat-typing__dot" aria-hidden="true"></div>
-          <div class="chat-typing__dot" aria-hidden="true"></div>
-          <div class="chat-typing__dot" aria-hidden="true"></div>
-          <span class="sr-only">${escapeHTML(t('chat.thinking'))}</span>
-        </div>
-
-        <div class="chat-input-area" role="form" aria-label="Chat message input">
-          <button class="btn btn--ghost btn--icon" id="chat-voice-btn" type="button"
-            aria-label="${escapeHTML(t('chat.voice'))}" title="${escapeHTML(t('chat.voice'))}">
-            🎤
-          </button>
-          <textarea
-            id="chat-input"
-            class="chat-input-area__field"
-            placeholder="${escapeHTML(t('chat.placeholder'))}"
-            rows="1"
-            maxlength="2000"
-            aria-label="${escapeHTML(t('chat.placeholder'))}"
-          ></textarea>
-          <button class="btn btn--primary btn--icon" id="chat-send-btn" type="button"
-            aria-label="${escapeHTML(t('chat.send'))}" title="${escapeHTML(t('chat.send'))}">
-            ➤
-          </button>
-        </div>
-      </section>
-    `;
+    return createElement('section', { class: 'chat-container glass-card glass-card--no-hover', aria: { label: t('chat.title') } }, [
+      createElement('header', { class: 'flex items-center justify-between', style: 'padding: var(--space-4); border-bottom: 1px solid var(--glass-border);' }, [
+        createElement('div', {}, [
+          createElement('h2', { style: 'font-size: var(--text-xl); margin-bottom: var(--space-1);' }, ['🤖 ', t('chat.title')]),
+          createElement('p', { style: 'font-size: var(--text-xs); color: var(--color-text-muted);' }, [t('chat.subtitle')])
+        ]),
+        createElement('div', { class: 'flex items-center gap-2' }, [
+          createElement('select', { 
+            id: 'chat-lang-select', 
+            class: 'form-select', 
+            style: 'width: auto; padding: var(--space-2) var(--space-8) var(--space-2) var(--space-3); font-size: var(--text-xs);',
+            aria: { label: 'Select chat language' }
+          }, langOptions),
+          createElement('button', { class: 'btn btn--ghost btn--sm', id: 'chat-clear-btn', type: 'button', aria: { label: t('chat.clearChat') } }, ['🗑️'])
+        ])
+      ]),
+      createElement('div', { class: 'chat-messages', id: 'chat-messages', role: 'log', aria: { label: 'Chat messages', live: 'polite', relevant: 'additions' } }, [
+        createElement('div', { class: 'chat-message chat-message--ai', role: 'article', aria: { label: 'AI message' } }, [
+          createElement('div', { class: 'chat-message__avatar', aria: { hidden: 'true' } }, ['AI']),
+          createElement('div', {}, [
+            createElement('div', { class: 'chat-message__bubble' }, [welcomeMessage]),
+            createElement('div', { class: 'chat-message__time', aria: { label: 'Sent just now' } }, ['Just now'])
+          ])
+        ])
+      ]),
+      createElement('div', { id: 'chat-typing-indicator', class: 'chat-typing', style: 'padding: 0 var(--space-4); display: none;', aria: { live: 'polite' }, role: 'status' }, [
+        createElement('div', { class: 'chat-typing__dot', aria: { hidden: 'true' } }),
+        createElement('div', { class: 'chat-typing__dot', aria: { hidden: 'true' } }),
+        createElement('div', { class: 'chat-typing__dot', aria: { hidden: 'true' } }),
+        createElement('span', { class: 'sr-only' }, [t('chat.thinking')])
+      ]),
+      createElement('div', { class: 'chat-input-area', role: 'form', aria: { label: 'Chat message input' } }, [
+        createElement('button', { class: 'btn btn--ghost btn--icon', id: 'chat-voice-btn', type: 'button', aria: { label: t('chat.voice') }, title: t('chat.voice') }, ['🎤']),
+        createElement('textarea', { id: 'chat-input', class: 'chat-input-area__field', placeholder: t('chat.placeholder'), rows: '1', maxlength: '2000', aria: { label: t('chat.placeholder') } }),
+        createElement('button', { class: 'btn btn--primary btn--icon', id: 'chat-send-btn', type: 'button', aria: { label: t('chat.send') }, title: t('chat.send') }, ['➤'])
+      ])
+    ]);
   }
 
   /**
@@ -129,7 +117,7 @@ export default function ChatWindow() {
         store.dispatch('chat.clearMessages', null);
         const messagesEl = document.getElementById('chat-messages');
         if (messagesEl) {
-          messagesEl.innerHTML = '';
+          replaceChildren(messagesEl, []);
           announceToScreenReader('Chat cleared');
         }
       };
@@ -195,10 +183,11 @@ export default function ChatWindow() {
         language: result.detectedLang
       });
 
+      updateMessageContent(aiMessageId, result.response, false);
       announceToScreenReader('AI response received');
     } catch (err) {
       if (err.name !== 'AbortError') {
-        updateMessageContent(aiMessageId, t('chat.errorResponse'));
+        updateMessageContent(aiMessageId, t('chat.errorResponse'), false);
         announceToScreenReader('AI encountered an error');
       }
     } finally {
@@ -222,20 +211,23 @@ export default function ChatWindow() {
     const messageId = 'msg-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const avatarText = role === 'user' ? 'You' : 'AI';
-    const escapedContent = escapeHTML(content);
 
-    const messageHTML = `
-      <div class="chat-message chat-message--${role}" id="${messageId}" role="article"
-        aria-label="${role === 'user' ? 'Your message' : 'AI response'}">
-        <div class="chat-message__avatar" aria-hidden="true">${avatarText}</div>
-        <div>
-          <div class="chat-message__bubble" id="${messageId}-content">${escapedContent}${isStreaming ? '<span class="typing-cursor" aria-hidden="true">▌</span>' : ''}</div>
-          <div class="chat-message__time">${escapeHTML(time)}</div>
-        </div>
-      </div>
-    `;
+    const cursorEl = isStreaming ? createElement('span', { class: 'typing-cursor', aria: { hidden: 'true' } }, ['▌']) : null;
 
-    messagesEl.insertAdjacentHTML('beforeend', messageHTML);
+    const messageEl = createElement('div', { 
+      class: `chat-message chat-message--${role}`, 
+      id: messageId, 
+      role: 'article', 
+      aria: { label: role === 'user' ? 'Your message' : 'AI response' } 
+    }, [
+      createElement('div', { class: 'chat-message__avatar', aria: { hidden: 'true' } }, [avatarText]),
+      createElement('div', {}, [
+        createElement('div', { class: 'chat-message__bubble', id: `${messageId}-content` }, [content, cursorEl]),
+        createElement('div', { class: 'chat-message__time' }, [time])
+      ])
+    ]);
+
+    messagesEl.appendChild(messageEl);
     scrollToBottom();
 
     return messageId;
@@ -245,11 +237,16 @@ export default function ChatWindow() {
    * Updates a streaming message's content.
    * @param {string} messageId - Message element ID
    * @param {string} content - Updated content
+   * @param {boolean} [isStreaming=true] - Whether the cursor should be shown
    */
-  function updateMessageContent(messageId, content) {
+  function updateMessageContent(messageId, content, isStreaming = true) {
     const contentEl = document.getElementById(`${messageId}-content`);
     if (contentEl) {
-      contentEl.innerHTML = escapeHTML(content) + '<span class="typing-cursor" aria-hidden="true">▌</span>';
+      const children = [content];
+      if (isStreaming) {
+        children.push(createElement('span', { class: 'typing-cursor', aria: { hidden: 'true' } }, ['▌']));
+      }
+      replaceChildren(contentEl, children);
       scrollToBottom();
     }
   }
