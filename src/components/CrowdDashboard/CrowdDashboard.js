@@ -13,7 +13,48 @@ import { createElement, replaceChildren } from '../../core/dom.js';
  * Creates the Crowd Dashboard component.
  * @returns {Object} Component with render, mount, unmount methods
  */
-export default function CrowdDashboard() {
+function _renderLoadingState() {
+  return createElement('div', { class: 'text-center', style: 'padding: var(--space-8); color: var(--color-text-muted);' }, ['Loading crowd data...']);
+}
+
+function _renderStatCards(data) {
+  return [
+    createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Total occupancy: ${data.currentOccupancy.toLocaleString()}` } }, [
+      createElement('span', { class: 'stat-card__label' }, [t('crowd.occupancy')]),
+      createElement('span', { class: 'stat-card__value', id: 'crowd-total-display' }, [data.currentOccupancy.toLocaleString()]),
+      createElement('span', { class: 'stat-card__delta stat-card__delta--up' }, [`${data.occupancyPercentage}% capacity`])
+    ]),
+    createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Active choke points: ${data.chokePoints.length}` } }, [
+      createElement('span', { class: 'stat-card__label' }, ['Choke Points']),
+      createElement('span', { class: 'stat-card__value', id: 'crowd-chokes-display', style: data.chokePoints.length > 0 ? '-webkit-text-fill-color: var(--color-accent-red);' : '' }, [data.chokePoints.length]),
+      createElement('span', { class: 'stat-card__delta' }, ['Active alerts'])
+    ])
+  ];
+}
+
+function _renderHeatmapSection() {
+  return createElement('section', { class: 'glass-card', aria: { labelledby: 'crowd-heatmap-heading' } }, [
+    createElement('h3', { id: 'crowd-heatmap-heading', style: 'margin-bottom: var(--space-4);' }, ['🌡️ Heatmap & Zones']),
+    createElement('div', { style: 'position: relative; width: 100%; aspect-ratio: 16/9; background: var(--color-bg-tertiary); border-radius: var(--radius-md); overflow: hidden;' }, [
+      createElement('canvas', { id: 'crowd-heatmap-canvas', width: '800', height: '450', style: 'width: 100%; height: 100%; display: block;' })
+    ])
+  ]);
+}
+
+function _renderRightPanel(gateList, aiSuggestions) {
+  return createElement('div', { class: 'flex flex-col gap-6' }, [
+    createElement('section', { aria: { labelledby: 'crowd-gates-heading' } }, [
+      createElement('h3', { id: 'crowd-gates-heading', style: 'margin-bottom: var(--space-4);' }, [`🚪 ${t('crowd.gates')}`]),
+      createElement('div', { class: 'flex flex-col gap-3', id: 'crowd-gates-list' }, gateList)
+    ]),
+    createElement('section', { aria: { labelledby: 'crowd-ai-heading' } }, [
+      createElement('h3', { id: 'crowd-ai-heading', style: 'margin-bottom: var(--space-4);' }, [`🤖 ${t('crowd.aiSuggestions')}`]),
+      createElement('div', { class: 'flex flex-col gap-3', id: 'crowd-ai-list' }, aiSuggestions)
+    ])
+  ]);
+}
+
+export default function TournamentOperationsHub() {
   const cleanupFns = [];
   let updateInterval = null;
   let canvasContext = null;
@@ -21,43 +62,12 @@ export default function CrowdDashboard() {
 
   function render() {
     const data = store.getState('crowd').currentData;
+    if (!data) return _renderLoadingState();
 
-    if (!data) {
-      return createElement('div', { class: 'text-center', style: 'padding: var(--space-8); color: var(--color-text-muted);' }, ['Loading crowd data...']);
-    }
-
-    const statCards = [
-      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Total occupancy: ${data.currentOccupancy.toLocaleString()}` } }, [
-        createElement('span', { class: 'stat-card__label' }, [t('crowd.occupancy')]),
-        createElement('span', { class: 'stat-card__value', id: 'crowd-total-display' }, [data.currentOccupancy.toLocaleString()]),
-        createElement('span', { class: 'stat-card__delta stat-card__delta--up' }, [`${data.occupancyPercentage}% capacity`])
-      ]),
-      createElement('article', { class: 'glass-card stat-card', role: 'article', aria: { label: `Active choke points: ${data.chokePoints.length}` } }, [
-        createElement('span', { class: 'stat-card__label' }, ['Choke Points']),
-        createElement('span', { class: 'stat-card__value', id: 'crowd-chokes-display', style: data.chokePoints.length > 0 ? '-webkit-text-fill-color: var(--color-accent-red);' : '' }, [data.chokePoints.length]),
-        createElement('span', { class: 'stat-card__delta' }, ['Active alerts'])
-      ])
-    ];
-
+    const statCards = _renderStatCards(data);
     const gateList = Object.values(data.gates).map((gate) => renderGateCard(gate));
-
-    const heatmapSection = createElement('section', { class: 'glass-card', aria: { labelledby: 'crowd-heatmap-heading' } }, [
-      createElement('h3', { id: 'crowd-heatmap-heading', style: 'margin-bottom: var(--space-4);' }, ['🌡️ Heatmap & Zones']),
-      createElement('div', { style: 'position: relative; width: 100%; aspect-ratio: 16/9; background: var(--color-bg-tertiary); border-radius: var(--radius-md); overflow: hidden;' }, [
-        createElement('canvas', { id: 'crowd-heatmap-canvas', width: '800', height: '450', style: 'width: 100%; height: 100%; display: block;' })
-      ])
-    ]);
-
-    const rightPanel = createElement('div', { class: 'flex flex-col gap-6' }, [
-      createElement('section', { aria: { labelledby: 'crowd-gates-heading' } }, [
-        createElement('h3', { id: 'crowd-gates-heading', style: 'margin-bottom: var(--space-4);' }, [`🚪 ${t('crowd.gates')}`]),
-        createElement('div', { class: 'flex flex-col gap-3', id: 'crowd-gates-list' }, gateList)
-      ]),
-      createElement('section', { aria: { labelledby: 'crowd-ai-heading' } }, [
-        createElement('h3', { id: 'crowd-ai-heading', style: 'margin-bottom: var(--space-4);' }, [`🤖 ${t('crowd.aiSuggestions')}`]),
-        createElement('div', { class: 'flex flex-col gap-3', id: 'crowd-ai-list' }, data.aiSuggestions.map((s) => renderAISuggestion(s)))
-      ])
-    ]);
+    const heatmapSection = _renderHeatmapSection();
+    const rightPanel = _renderRightPanel(gateList, data.aiSuggestions.map((s) => renderAISuggestion(s)));
 
     return createElement('div', { class: 'flex flex-col gap-6' }, [
       createElement('div', { class: 'flex justify-between items-center' }, [
@@ -107,35 +117,30 @@ export default function CrowdDashboard() {
     ]);
   }
 
-  function drawHeatmap(points) {
-    if (!canvasContext || !canvasElement) return;
-    const canvas = canvasElement;
-    const ctx = canvasContext;
+  function _applyHeatmapColors(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      const alpha = data[i + 3];
+      if (alpha > 0) {
+        if (alpha < 64) {
+          data[i] = 0; data[i + 1] = 0; data[i + 2] = 255;
+        } else if (alpha < 128) {
+          data[i] = 0; data[i + 1] = 255; data[i + 2] = 255 - (alpha - 64) * 4;
+        } else if (alpha < 192) {
+          data[i] = (alpha - 128) * 4; data[i + 1] = 255; data[i + 2] = 0;
+        } else {
+          data[i] = 255; data[i + 1] = 255 - (alpha - 192) * 4; data[i + 2] = 0;
+        }
+        data[i + 3] = alpha;
+      }
+    }
+  }
 
-    // Resize canvas to match display size for sharp rendering
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw field outline for context
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(canvas.width * 0.1, canvas.height * 0.1, canvas.width * 0.8, canvas.height * 0.8, 20);
-    ctx.stroke();
-
-    // Create an offscreen canvas for alpha blending the heatmap
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext('2d');
-
+  function _drawHeatmapPoints(tempCtx, points, canvasWidth, canvasHeight) {
     points.forEach(p => {
-      const x = p.x * canvas.width;
-      const y = p.y * canvas.height;
-      const radius = p.radius * (canvas.width / 800); // Scale radius by canvas width
+      if (typeof p !== 'object' || !p) return;
+      const x = p.x * canvasWidth;
+      const y = p.y * canvasHeight;
+      const radius = p.radius * (canvasWidth / 800);
       const intensity = p.intensity;
 
       const grad = tempCtx.createRadialGradient(x, y, 0, x, y, radius);
@@ -147,32 +152,38 @@ export default function CrowdDashboard() {
       tempCtx.arc(x, y, radius, 0, Math.PI * 2);
       tempCtx.fill();
     });
+  }
 
-    // Colorize the alpha map
+  function initializeRealTimeHeatmap(points) {
+    if (!canvasContext || !canvasElement || !Array.isArray(points)) return;
+    const canvas = canvasElement;
+    const ctx = canvasContext;
+
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(canvas.width * 0.1, canvas.height * 0.1, canvas.width * 0.8, canvas.height * 0.8, 20);
+    ctx.stroke();
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+
+    _drawHeatmapPoints(tempCtx, points, canvas.width, canvas.height);
+
     const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    
-    // Simple color gradient: Blue -> Green -> Yellow -> Red based on alpha
-    for (let i = 0; i < data.length; i += 4) {
-      const alpha = data[i + 3];
-      if (alpha > 0) {
-        if (alpha < 64) {
-          data[i] = 0; data[i + 1] = 0; data[i + 2] = 255; // Blue
-        } else if (alpha < 128) {
-          data[i] = 0; data[i + 1] = 255; data[i + 2] = 255 - (alpha - 64) * 4; // Cyan-ish
-        } else if (alpha < 192) {
-          data[i] = (alpha - 128) * 4; data[i + 1] = 255; data[i + 2] = 0; // Yellow-ish
-        } else {
-          data[i] = 255; data[i + 1] = 255 - (alpha - 192) * 4; data[i + 2] = 0; // Red-ish
-        }
-        data[i + 3] = alpha; // Keep original alpha for blending
-      }
-    }
-    
+    _applyHeatmapColors(imageData.data);
     ctx.putImageData(imageData, 0, 0);
   }
 
   function updateDashboard(data) {
+    if (typeof data !== 'object' || !data) return;
     const totalEl = document.getElementById('crowd-total-display');
     const chokesEl = document.getElementById('crowd-chokes-display');
     const gatesListEl = document.getElementById('crowd-gates-list');
@@ -184,17 +195,9 @@ export default function CrowdDashboard() {
       chokesEl.style.webkitTextFillColor = data.chokePoints.length > 0 ? 'var(--color-accent-red)' : '';
     }
 
-    if (gatesListEl) {
-      replaceChildren(gatesListEl, Object.values(data.gates).map((gate) => renderGateCard(gate)));
-    }
-
-    if (aiListEl) {
-      replaceChildren(aiListEl, data.aiSuggestions.map((s) => renderAISuggestion(s)));
-    }
-
-    if (data.heatmapPoints && canvasContext) {
-      drawHeatmap(data.heatmapPoints);
-    }
+    if (gatesListEl) replaceChildren(gatesListEl, Object.values(data.gates).map((gate) => renderGateCard(gate)));
+    if (aiListEl) replaceChildren(aiListEl, data.aiSuggestions.map((s) => renderAISuggestion(s)));
+    if (data.heatmapPoints && canvasContext) initializeRealTimeHeatmap(data.heatmapPoints);
   }
 
   function mount() {
@@ -202,44 +205,32 @@ export default function CrowdDashboard() {
     if (canvasElement) {
       canvasContext = canvasElement.getContext('2d', { willReadFrequently: true });
       const initialData = store.getState('crowd').currentData;
-      if (initialData && initialData.heatmapPoints) {
-        drawHeatmap(initialData.heatmapPoints);
-      }
+      if (initialData && initialData.heatmapPoints) initializeRealTimeHeatmap(initialData.heatmapPoints);
       
-      // Handle resize
       const handleResize = () => {
         const currentData = store.getState('crowd').currentData;
-        if (currentData && currentData.heatmapPoints) {
-          drawHeatmap(currentData.heatmapPoints);
-        }
+        if (currentData && currentData.heatmapPoints) initializeRealTimeHeatmap(currentData.heatmapPoints);
       };
       window.addEventListener('resize', handleResize);
       cleanupFns.push(() => window.removeEventListener('resize', handleResize));
     }
 
-    // Subscribe to Redux store updates for crowd data
     const unsubscribe = store.subscribe('crowd', (crowdState) => {
-      if (crowdState.currentData) {
-        updateDashboard(crowdState.currentData);
-      }
+      if (crowdState.currentData) updateDashboard(crowdState.currentData);
     });
     cleanupFns.push(unsubscribe);
 
-    // Initial load
     store.dispatch('crowd.fetchData', 'metlife');
-
-    // Poll for real-time updates
     updateInterval = setInterval(() => {
       store.dispatch('crowd.fetchData', 'metlife');
     }, 5000);
 
     cleanupFns.push(() => clearInterval(updateInterval));
-
     announceToScreenReader('Crowd Dashboard loaded. Live updates active.');
   }
 
   function unmount() {
-    cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+    cleanupFns.forEach((fn) => { try { fn(); } catch (e) {} });
     cleanupFns.length = 0;
     canvasContext = null;
     canvasElement = null;

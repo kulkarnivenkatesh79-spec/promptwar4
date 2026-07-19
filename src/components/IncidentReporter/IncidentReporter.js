@@ -15,7 +15,7 @@ import { createElement, replaceChildren } from '../../core/dom.js';
  * Creates the Incident Reporter component.
  * @returns {Object} Component with render, mount, unmount methods
  */
-export default function IncidentReporter() {
+export default function AutomatedIncidentPlaybookDispatcher() {
   const cleanupFns = [];
   let incidents = [...sampleIncidents];
 

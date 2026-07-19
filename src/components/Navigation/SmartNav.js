@@ -13,7 +13,7 @@ import { createElement, replaceChildren } from '../../core/dom.js';
  * Creates the Smart Navigation component.
  * @returns {Object} Component with render, mount, unmount methods
  */
-export default function SmartNav() {
+export default function DynamicTransitRouter() {
   const cleanupFns = [];
   let countdownInterval = null;
 

@@ -2,7 +2,7 @@
  * @fileoverview Smart Navigation full page with stadium map and routing.
  * @module pages/NavigationPage
  */
-import SmartNav from '../components/Navigation/SmartNav.js';
+import DynamicTransitRouter from '../components/Navigation/SmartNav.js';
 import StadiumMap from '../components/StadiumMap/StadiumMap.js';
 import { t } from '../core/i18n.js';
 import { createElement } from '../core/dom.js';
@@ -11,7 +11,7 @@ export default function NavigationPage() {
   let navInstance = null;
   let mapInstance = null;
   function render() {
-    navInstance = SmartNav();
+    navInstance = DynamicTransitRouter();
     mapInstance = StadiumMap();
     return createElement('div', {}, [
       createElement('section', { class: 'page-header', aria: { labelledby: 'nav-heading' } }, [

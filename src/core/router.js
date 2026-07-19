@@ -131,98 +131,97 @@ async function runBeforeHooks(from, to) {
  * @param {boolean} [options.replace=false] - Use replaceState instead of pushState
  * @param {boolean} [options.skipHooks=false] - Skip beforeNavigate hooks
  */
-async function navigateTo(hash, options = {}) {
-  const { replace = false, skipHooks = false } = options;
-  const currentHash = window.location.hash || '#/fan';
-
-  if (!skipHooks) {
-    const canProceed = await runBeforeHooks(currentHash, hash);
-    if (!canProceed) return;
-  }
-
-  const route = matchRoute(hash);
-
-  if (!route) {
-    renderNotFound();
-    return;
-  }
-
-  if (!isAuthorized(route)) {
-    const defaultRoute = getDefaultRouteForRole();
-    window.location.hash = defaultRoute;
-    return;
-  }
-
+function _unmountCurrentPage() {
   if (currentPageInstance && typeof currentPageInstance.unmount === 'function') {
-    try {
-      currentPageInstance.unmount();
-    } catch (err) {
-
-    }
+    try { currentPageInstance.unmount(); } catch (err) {}
     currentPageInstance = null;
   }
+}
 
-  const mainEl = document.getElementById('main-content');
-  if (!mainEl) return;
-
+function _renderLoadingState(mainEl) {
   replaceChildren(mainEl, [
     createElement('div', { class: 'flex justify-center items-center', style: 'min-height: 300px;', role: 'status', aria: { label: 'Loading page' } }, [
       createElement('div', { class: 'btn-spinner', style: 'width: 32px; height: 32px; border-width: 3px;' }),
       createElement('span', { class: 'sr-only' }, ['Loading page content'])
     ])
   ]);
+}
+
+async function _loadPageModule(route) {
+  if (moduleCache.has(route.path)) return moduleCache.get(route.path);
+  const pageModule = await route.loader();
+  moduleCache.set(route.path, pageModule);
+  return pageModule;
+}
+
+function _renderPageContent(instance, mainEl) {
+  if (typeof instance.render !== 'function') return;
+  const content = instance.render();
+  if (content instanceof Node) replaceChildren(mainEl, [content]);
+  else if (typeof content === 'string') mainEl.innerHTML = content;
+}
+
+function _mountPageInstance(instance, mainEl) {
+  if (typeof instance.mount === 'function') instance.mount(mainEl);
+  currentPageInstance = instance;
+}
+
+function _finalizeNavigation(route, hash, replace) {
+  document.title = `${route.title} — FIFA 2026 Smart Stadium`;
+  store.dispatch('ui.setRoute', hash);
+  if (!replace) window.location.hash = hash;
+  manageFocusOnRouteChange();
+  announceToScreenReader(`Navigated to ${route.title}`);
+}
+
+function _handleNavigationError(err, mainEl, hash, options) {
+  const retryBtn = createElement('button', { class: 'btn btn--primary', id: 'retry-page-btn', type: 'button' }, ['Retry']);
+  retryBtn.addEventListener('click', () => { moduleCache.delete(hash); navigateTo(hash, options); });
+  replaceChildren(mainEl, [
+    createElement('section', { class: 'glass-card text-center', style: 'max-width: 500px; margin: var(--space-16) auto;', role: 'alert' }, [
+      createElement('h2', { style: 'color: var(--color-accent-red); margin-bottom: var(--space-4);' }, ['⚠️ Page Load Error']),
+      createElement('p', { style: 'margin-bottom: var(--space-6);' }, ["We couldn't load this page. Please try again."]),
+      retryBtn
+    ])
+  ]);
+  announceToScreenReader('Page failed to load. Retry button available.');
+}
+
+/**
+ * Navigates to a route, loading the page module and rendering it.
+ * @param {string} hash - Target hash path
+ * @param {Object} [options] - Navigation options
+ */
+async function navigateTo(hash, options = {}) {
+  if (typeof hash !== 'string') return;
+  const { replace = false, skipHooks = false } = options;
+  const currentHash = window.location.hash || '#/fan';
+
+  if (!skipHooks) {
+    if (!(await runBeforeHooks(currentHash, hash))) return;
+  }
+
+  const route = matchRoute(hash);
+  if (!route) return renderNotFound();
+
+  if (!isAuthorized(route)) return push(getDefaultRouteForRole());
+
+  _unmountCurrentPage();
+  const mainEl = document.getElementById('main-content');
+  if (!mainEl) return;
+
+  _renderLoadingState(mainEl);
 
   try {
-    let pageModule;
-    if (moduleCache.has(route.path)) {
-      pageModule = moduleCache.get(route.path);
-    } else {
-      pageModule = await route.loader();
-      moduleCache.set(route.path, pageModule);
-    }
-
+    const pageModule = await _loadPageModule(route);
     const page = pageModule.default || pageModule;
     const instance = typeof page === 'function' ? page() : page;
 
-    if (typeof instance.render === 'function') {
-      const content = instance.render();
-      if (content instanceof Node) {
-        replaceChildren(mainEl, [content]);
-      } else if (typeof content === 'string') {
-        mainEl.innerHTML = content;
-      }
-    }
-
-    if (typeof instance.mount === 'function') {
-      instance.mount(mainEl);
-    }
-
-    currentPageInstance = instance;
-
-    document.title = `${route.title} — FIFA 2026 Smart Stadium`;
-    store.dispatch('ui.setRoute', hash);
-
-    if (!replace) {
-      window.location.hash = hash;
-    }
-
-    manageFocusOnRouteChange();
-    announceToScreenReader(`Navigated to ${route.title}`);
-
+    _renderPageContent(instance, mainEl);
+    _mountPageInstance(instance, mainEl);
+    _finalizeNavigation(route, hash, replace);
   } catch (err) {
-    const retryButton = createElement('button', { class: 'btn btn--primary', id: 'retry-page-btn', type: 'button' }, ['Retry']);
-    retryButton.addEventListener('click', () => {
-      moduleCache.delete(hash);
-      navigateTo(hash, options);
-    });
-    replaceChildren(mainEl, [
-      createElement('section', { class: 'glass-card text-center', style: 'max-width: 500px; margin: var(--space-16) auto;', role: 'alert' }, [
-        createElement('h2', { style: 'color: var(--color-accent-red); margin-bottom: var(--space-4);' }, ['⚠️ Page Load Error']),
-        createElement('p', { style: 'margin-bottom: var(--space-6);' }, ["We couldn't load this page. Please try again."]),
-        retryButton
-      ])
-    ]);
-    announceToScreenReader('Page failed to load. Retry button available.');
+    _handleNavigationError(err, mainEl, hash, options);
   }
 }
 

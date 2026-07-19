@@ -10,49 +10,72 @@
  * @param {Array<HTMLElement|string|false|null|undefined>} [children=[]] - Child elements or text
  * @returns {HTMLElement} Created element
  */
-export function createElement(tag, attributes = {}, children = []) {
-  const el = document.createElement(tag);
+function _applyEvents(el, key, value) {
+  const eventName = key.slice(2).toLowerCase();
+  const isPassive = ['wheel', 'touchstart', 'touchmove', 'scroll'].includes(eventName);
+  el.addEventListener(eventName, value, isPassive ? { passive: true } : undefined);
+}
 
-  for (const [key, value] of Object.entries(attributes || {})) {
-    if (key.startsWith('on') && typeof value === 'function') {
-      const eventName = key.slice(2).toLowerCase();
-      const isPassive = ['wheel', 'touchstart', 'touchmove', 'scroll'].includes(eventName);
-      el.addEventListener(eventName, value, isPassive ? { passive: true } : undefined);
-    } else if (key === 'className' || key === 'class') {
-      el.className = value;
-    } else if (key === 'style' && typeof value === 'object') {
-      Object.assign(el.style, value);
-    } else if (key === 'style' && typeof value === 'string') {
-      el.style.cssText = value;
-    } else if (key === 'dataset' && typeof value === 'object') {
-      for (const [dataKey, dataValue] of Object.entries(value)) {
-        el.dataset[dataKey] = dataValue;
-      }
-    } else if (key === 'aria') {
-       for (const [ariaKey, ariaValue] of Object.entries(value)) {
-         el.setAttribute(`aria-${ariaKey}`, ariaValue);
-       }
-    } else if (value !== null && value !== undefined && value !== false) {
-      if (value === true) {
-        el.setAttribute(key, '');
-      } else {
-        el.setAttribute(key, value);
-      }
-    }
+function _applyStyle(el, value) {
+  if (typeof value === 'object') Object.assign(el.style, value);
+  else if (typeof value === 'string') el.style.cssText = value;
+}
+
+function _applyDataset(el, value) {
+  if (typeof value !== 'object') return;
+  for (const [k, v] of Object.entries(value)) el.dataset[k] = v;
+}
+
+function _applyAria(el, value) {
+  if (typeof value !== 'object') return;
+  for (const [k, v] of Object.entries(value)) el.setAttribute(`aria-${k}`, v);
+}
+
+function _applyAttribute(el, key, value) {
+  if (value === null || value === undefined || value === false) return;
+  if (value === true) el.setAttribute(key, '');
+  else el.setAttribute(key, value);
+}
+
+function _applyProperties(el, attributes) {
+  if (typeof attributes !== 'object' || attributes === null) return;
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key.startsWith('on') && typeof value === 'function') _applyEvents(el, key, value);
+    else if (key === 'className' || key === 'class') el.className = value;
+    else if (key === 'style') _applyStyle(el, value);
+    else if (key === 'dataset') _applyDataset(el, value);
+    else if (key === 'aria') _applyAria(el, value);
+    else _applyAttribute(el, key, value);
   }
+}
 
-  // Flatten children to allow conditional rendering arrays
+function _appendSafeChild(parent, child) {
+  if (child === null || child === undefined || child === false) return;
+  if (typeof child === 'string' || typeof child === 'number') {
+    parent.appendChild(document.createTextNode(String(child)));
+  } else if (child instanceof Node) {
+    parent.appendChild(child);
+  }
+}
+
+function _flattenAndAppendChildren(parent, children) {
+  if (!Array.isArray(children)) return;
   const flatChildren = children.flat(Infinity);
+  flatChildren.forEach(child => _appendSafeChild(parent, child));
+}
 
-  flatChildren.forEach(child => {
-    if (child === null || child === undefined || child === false) return;
-    if (typeof child === 'string' || typeof child === 'number') {
-      el.appendChild(document.createTextNode(String(child)));
-    } else if (child instanceof Node) {
-      el.appendChild(child);
-    }
-  });
-
+/**
+ * Safely creates a DOM element with attributes and children.
+ * @param {string} tag - HTML tag name
+ * @param {Object} [attributes={}] - Element attributes or properties
+ * @param {Array<HTMLElement|string|false|null|undefined>} [children=[]] - Child elements or text
+ * @returns {HTMLElement|DocumentFragment} Created element
+ */
+export function createElement(tag, attributes = {}, children = []) {
+  if (typeof tag !== 'string') return document.createDocumentFragment();
+  const el = document.createElement(tag);
+  _applyProperties(el, attributes);
+  _flattenAndAppendChildren(el, children);
   return el;
 }
 
@@ -62,17 +85,7 @@ export function createElement(tag, attributes = {}, children = []) {
  * @param {Array<HTMLElement|string|false|null|undefined>} children - Child elements or text
  */
 export function replaceChildren(parent, children) {
-  if (!parent) return;
+  if (!(parent instanceof HTMLElement)) return;
   parent.textContent = ''; // Fast way to clear children safely
-  
-  const flatChildren = children.flat(Infinity);
-  
-  flatChildren.forEach(child => {
-    if (child === null || child === undefined || child === false) return;
-    if (typeof child === 'string' || typeof child === 'number') {
-      parent.appendChild(document.createTextNode(String(child)));
-    } else if (child instanceof Node) {
-      parent.appendChild(child);
-    }
-  });
+  _flattenAndAppendChildren(parent, children);
 }

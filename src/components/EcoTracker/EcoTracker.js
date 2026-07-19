@@ -14,7 +14,7 @@ import { createElement, replaceChildren } from '../../core/dom.js';
  * Creates the Eco Tracker component.
  * @returns {Object} Component with render, mount, unmount methods
  */
-export default function EcoTracker() {
+export default function SustainabilityEcoTracker() {
   const cleanupFns = [];
   let userPoints = 475;
   let userActions = [];

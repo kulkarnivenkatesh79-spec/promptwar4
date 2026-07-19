@@ -300,4 +300,12 @@ If a question is outside this scope, politely state you only answer questions re
   }
 }
 
-export { processMessage, streamResponse, detectTopic, getResponse, knowledgeBase };
+const MultilingualStreamingAssistant = {
+  processMessage,
+  streamResponse,
+  detectTopic,
+  getResponse,
+  knowledgeBase
+};
+
+export { processMessage, streamResponse, detectTopic, getResponse, knowledgeBase, MultilingualStreamingAssistant };

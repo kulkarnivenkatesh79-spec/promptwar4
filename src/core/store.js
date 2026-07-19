@@ -187,6 +187,7 @@ function createStore() {
    * @returns {*} Frozen state slice
    */
   function getState(key) {
+    if (key !== undefined && typeof key !== 'string') throw new TypeError('[Store] getState key must be a string');
     if (key && state[key] !== undefined) {
       return deepFreeze(deepClone(state[key]));
     }
