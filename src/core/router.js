@@ -210,11 +210,10 @@ async function navigateTo(hash, options = {}) {
     announceToScreenReader(`Navigated to ${route.title}`);
 
   } catch (err) {
-
     const retryButton = createElement('button', { class: 'btn btn--primary', id: 'retry-page-btn', type: 'button' }, ['Retry']);
     retryButton.addEventListener('click', () => {
       moduleCache.delete(hash);
-      navigateTo(hash, { skipHooks: true });
+      navigateTo(hash, options);
     });
     replaceChildren(mainEl, [
       createElement('section', { class: 'glass-card text-center', style: 'max-width: 500px; margin: var(--space-16) auto;', role: 'alert' }, [
@@ -223,7 +222,6 @@ async function navigateTo(hash, options = {}) {
         retryButton
       ])
     ]);
-    // retry listener already attached above
     announceToScreenReader('Page failed to load. Retry button available.');
   }
 }

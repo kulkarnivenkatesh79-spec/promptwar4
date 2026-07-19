@@ -449,6 +449,26 @@ function createStore() {
       state.lastUpdated = Date.now();
     },
     /**
+     * Fetches and sets the mock crowd data.
+     * @param {Object} state - The crowd state slice
+     * @param {string} venueId - Venue ID
+     */
+    fetchData(state, venueId) {
+      // Import dynamically to avoid circular dependencies if any
+      import('../data/mockCrowdData.js').then(module => {
+         store.dispatch('crowd.setCurrentData', module.generateCrowdData(venueId));
+      });
+    },
+    /**
+     * Sets current crowd data.
+     * @param {Object} state - The crowd state slice
+     * @param {Object} data - The current crowd data
+     */
+    setCurrentData(state, data) {
+      state.currentData = data;
+      state.lastUpdated = Date.now();
+    },
+    /**
      * Sets the crowd data fetch status.
      * @param {Object} state - The crowd state slice
      * @param {AsyncStatus} status - Status
